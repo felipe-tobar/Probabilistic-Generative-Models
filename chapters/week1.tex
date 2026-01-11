@@ -242,3 +242,260 @@ which can be computed explicitly using Bayes theorem in terms of the model param
 
 This means that exact ML cannot be performed in this case. Also, does this procedure seem familiar? 
 \end{example}
+
+
+The maximum likelihood estimator (MLE) satisfies several important theoretical properties:
+
+\begin{itemize}
+    \item \textbf{Consistency:} Under the assumption that the statistical model is \emph{identifiable}—i.e., different parameter values correspond to different probability distributions—the MLE converges to the true parameter as the number of observations grows. Intuitively, maximising the likelihood asymptotically minimises the Kullback--Leibler divergence between the true distribution and the distribution induced by a candidate parameter.
+    
+    \item \textbf{Equivariance:} If $\hat{\theta}_{\mathrm{MLE}}$ is the MLE of $\theta$, then for any transformation $g$, the MLE of $g(\theta)$ is $g(\hat{\theta}_{\mathrm{MLE}})$. This property allows us to compute MLEs under reparametrisations directly.
+    
+    \item \textbf{Asymptotic normality:} For large sample sizes, the MLE is approximately normally distributed around the true parameter with covariance matrix given by the inverse Fisher information. Formally, 
+    \[
+        \sqrt{n}(\hat{\theta}_{\mathrm{MLE}} - \theta) \ \xrightarrow{d} \ \mathcal{N}(0, I(\theta)^{-1}),
+    \]
+    where $I(\theta)$ is the Fisher information matrix.
+    
+    \item \textbf{Asymptotic efficiency:} As a consequence of asymptotic normality, the MLE achieves the Cramér--Rao lower bound for the variance in the limit of large $n$, making it asymptotically optimal among unbiased estimators.
+\end{itemize}
+
+In practice, these properties justify the widespread use of the MLE: it not only converges to the true parameter under mild assumptions, but also allows for straightforward reparametrisations and provides an estimator with minimal asymptotic variance.
+
+\section{A brief intro to information theory}
+
+
+\paragraph{Motivation.} Let us consider a discrete RV $X\in \{1,2,\ldots, K\}$ with pmf $p_X$.  Observe that $-\log p_X(x)$ represents a measure of \emph{information} gained from obtaining the value $a$ as a sample of $X$. Now consider a communication channel $A \to B$, where $A$ is transmitting samples of $X$ to $B$. When $B$ received the samples, its \emph{average information} can be expressed as 
+\begin{equation}
+	H(X) = -\sum_{x=1}^K p_X(x) \log p_X(x).
+\end{equation}
+
+This quantity is known as \emph{entropy} and---in connection with thermodynamics---it represent a measure of disorder or un-predictability of $X$. 
+
+\textbf{NB}: We will use $H(X)$ and $H(p_X)$ interchangeably.\\
+\textbf{NB}: We will usually denote $H(X) = -\E{\log p_X} = \E{\log\frac{1}{p_X}}$.
+
+
+
+Clearly, $H(X)\geq0$ with equality achieved for an RV that has always the same outcome with $p_X(x)=1$. This is the deterministic, predictable, case.  To revise further properties, let us recall the following result. 
+
+\paragraph{Jensen's Inequality}
+Let $\phi:\mathbb{R}\rightarrow\mathbb{R}$ be a \emph{convex} function and let $X$ be a random variable such that $\mathbb{E}[|X|] < \infty$.
+Then
+\begin{equation}
+	\phi\bigl(\mathbb{E}[X]\bigr) \;\le\; \mathbb{E}\bigl[\phi(X)\bigr].	
+	\label{eq:Jensen_gral}
+\end{equation}
+since $\log(\cdots)$ is \emph{concave}, the inequality is reversed and we have: 
+\begin{equation}
+	\mathbb{E}[\log X] \;\le\; \log \mathbb{E}[X].	
+	\label{eq:Jensen_log}
+\end{equation}
+
+\begin{remark}
+	 \label{rem:jensen_equality}
+	Equality in eq.~\eqref{eq:Jensen_gral} is only achieved when either $\phi$ is affine, or $X$ is constant almost surely, that is, $\Prob{X=c} = 1$. As a consequence, equality in eq.~\eqref{eq:Jensen_log} is only achieved when $X$ is constant almost surely (when the argument of the logarithm does not depend on $x$)
+\end{remark}
+Keep this result in mind, as it will be used throughout the module.
+
+Using Jensen on the definition of the entropy, we have 
+\begin{equation}
+	H(X) = \E{\log\frac{1}{p}} \leq \log\E{\frac{1}{p}} = \log\sum\frac{1}{p}p = \log K.
+\end{equation}
+This directly implies that the uniform distribution over $\{1,2,\ldots, K\}$ has the largest entropy, since 
+\begin{equation}
+	H(U_{1:K}) = \E{\log\frac{1}{1/K}} = \log K.
+\end{equation}
+
+
+\begin{example}[Bernoulli distribution]
+	Consider $X\sim p_X(x) = \theta^x (1-\theta)^{1-x}, \theta\in[0,1].$ The entropy is given by $H(X) = -\theta\log\theta + (1-\theta)\log(1-\theta)$. Figure \ref{fig:entropy_bernoulli} shows this function. 
+	\begin{figure}[H]
+	\centering
+	\includegraphics[width=0.6\textwidth]{img/week1_bernoulli_entropy.pdf}
+	\caption{Entropy for Bernoulli.}
+	\label{fig:entropy_bernoulli}
+	\end{figure}
+\end{example}
+
+The entropy, in addition to being a measure of disorder, can be understood as the cost of the optimal for of compression. Here, think of a compression strategy using symbols $s_1, s_2,\ldots$ with increasing size (or storage cost). For instance, think of storage using logical gates, meaning that these symbols are (equivalent to)  
+\begin{equation}
+	s_1 = 0, s_2 = 1, s_3 = 10, s_4 =11, \ldots
+\end{equation}
+where storing more and more symbols becomes increasingly expensive. The compression strategy is then to assign each outcome of $X$ with a symbol $s_i$. Intuitively, the optimal compression would assign $s_i$ to the $i$-th most frequent value in $\{1,2,.\ldots,K\}$, meaning that the \emph{cost of storage} precisely grows precisely with $\log\frac{1}{p_X}$. 
+
+As a consequence, the average message size is the entropy $H(X)$, and thus can be understood as the cost of this compression strategy.
+
+Now let us go back to our communication channel $A\to B$, where the receiver in $B$ now mistakenly believes that $X\sim q_X$. $B$'s estimated entropy, or averaged information, would be 
+\begin{equation}
+	H_{CE}(p_X,q_X) = -\sum_{x=1}^K p_X(x_i) \log q_X(x_i).
+\end{equation}
+Following the same rationale as above, this can be interpreted as the cost of compressing the sequence $x_1,x_2,x_3,\ldots$ using $q_x$. 
+
+This quantity is known as the cross-entropy between $p_X$ and $q_X$. Note that this quantity is not symmetric. 
+
+It is relevant to study how $H_{CE}(p_X,q_X)$ and $H(P) = H_{CE}(p_X,p_X)$ relate to one another, in particular if one of them is (always) larger than the other. 
+
+Let us see:
+\begin{align}
+	H(p) - H_{CE}(p_X,q_X) 
+	&= \sum_x p(x) \log \frac{q(x)}{p(x)}\\
+	&\stackrel{\text{Jensen's}}{\leq} \log \sum_x \cancel{p(x)} \frac{q(x)}{\cancel{p(x)}}\\
+	&= \log 1 = 0.
+\end{align}
+
+Therefore, $H(p) \leq H(p,q)$, with equality only achieved when $p=q$, as per Remark \ref{rem:jensen_equality}.
+\begin{remark}
+	Minimising the correntropy wrt to one of its arguments is precisely an attempt to match $p=q$. 
+\end{remark}
+
+The use of the entropy/correntropy that is going to be more relevant in our case is via its application to continuous RVs. This extension is 
+\begin{align}
+	H(p) = -\int_\cX p(x)\log p(x)\dx\\
+	H(p,q) = -\int_\cX p(x)\log q(x)\dx\\
+\end{align}
+
+\begin{remark}
+	Unlike its discrete formulation, $H(p)$ can be positive, negative or zero for continuous RVs. 
+\end{remark}
+
+\begin{example}[Continuous unifom distribution]
+	Consider a RV $X\sim U_{[a,b]}$, its entropy is
+	$$H(U_{[a,b]}) = -\int_a^b \frac{1}{b-a}\log\frac{1}{b-a} \dx = \log(b-a).
+	$$
+	and can be zero (resp.~negative) if $b-a=1$ (resp.~$b-a\le 1$).
+\end{example}
+
+The difference between the entropy and crossentropy is of critical relevance in this module (and life). We will recall a relevant definition first. 
+
+\begin{definition}[Absolute Continuity]
+Let $(\Omega,\mathcal{F})$ be a measurable space and let $P$ and $Q$ be probability measures on it.
+We say that $P$ is \emph{absolutely continuous} with respect to $Q$, denoted $P \ll Q$,
+if for every $A \in \mathcal{F}$,
+\[
+Q(A)=0 \;\Longrightarrow\; P(A)=0.
+\]
+\end{definition}
+
+\begin{remark}
+If $P \ll Q$, and $Q$ admits a density $q$, $P$ admits a density $p$
+satisfying $p(x)=0$ whenever $q(x)=0$.
+\end{remark}
+
+\begin{definition}[Kullback--Leibler Divergence]
+Let $P$ and $Q$ be probability measures on a measurable space $(\Omega,\mathcal{F})$ such that $P \ll Q$. 
+If $P$ and $Q$ admit densities $p$ and $q$ with respect to a common base measure
+(e.g.\ Lebesgue measure), then
+\[
+\mathrm{KL}(p \,\|\, q)
+\;=\;
+\mathbb{E}_{p}\!\left[\log \frac{p(X)}{q(X)}\right]
+\;=\;
+\int p(x)\,\log\frac{p(x)}{q(x)}\,\mathrm{d}x.
+\]
+\end{definition}
+
+
+\begin{definition}[Discrete KL Divergence]
+For discrete distributions,
+\[
+\mathrm{KL}(p \,\|\, q)
+\;=\;
+\sum_x p(x)\,\log\frac{p(x)}{q(x)}.
+\]
+\end{definition}
+
+\begin{remark}
+	Notice that the KL divergence is always positive:
+	\begin{equation}
+		\mathrm{KL}(p \,\|\, q) = H(p,q) - H(p) \geq 0.
+	\end{equation}
+\end{remark}
+
+The KL is a \emph{divergence}, i.e., a function that quantifies how far $p$ is form $q$ that is i) always positive, and ii) $\mathrm{KL}(p \,\|\, q) = 0 \iff p=q$ (identify of the indiscernible). However, note that the KL is not a distance, since 
+\begin{itemize}
+	\item is not symmetric
+	\item does not have triangle inequality.
+\end{itemize}
+Critically, the $\mathrm{KL}(p \,\|\, q)$ is only defined when $P \ll Q$. 
+
+\section[KL divergence as a metric to compare distributions]{KL divergence as a metric to compare $p$ and $q$}
+
+In the continuous case, we are interested in understanding what type of convergence KL gives. Let us consider, other two divergences: 
+\begin{itemize}
+	\item $\DL{p}{q} = \int_\cX|p(x)-q(x)|\dx$
+	\item $\Dchi{p}{q} = \int_\cX \frac{|p(x)-q(x)|^2}{q(x)}\dx$.
+\end{itemize}
+
+\begin{example}[KL versus $L_1$]
+	Consider $p(x)=\uni{0,1}$ and $q_n(x) = \one{x\in[0,1/n]}e^{-n} + \one{x\in[1/n,1]} c_n $, with $c_n\ge 0$ so that $q$ integrates 1 ($n > 1$). Note that here, we have
+	\begin{align}
+		\DL{p}{q_n} &= \int_0^{1/n} |e^{-n}-1|\dx + \int_{1/n}^1 |c_n -1|\dx = \frac{|e^{-n}-1|}{n} + \frac{n|c_n-1|}{n-1}\\
+		\KL{p}{q_n} &=  \int_0^{1/n} -\log e^{-n} \dx + \int_{1/n}^1 -\log c_n \dx =  1 + \frac{-n}{n-1}\log c_n.
+	\end{align}
+	Now take $n\to\infty$. For $q_n$ to be well defined, $c_n$ has to converge to 1. Therefore, $\DL{p}{q}\to 0$. However, note that $\KL{p}{q} \to 1$.  
+\end{example}
+
+\begin{example}[KL versus $\chi^2$]
+	Consider now $p_\epsilon=(1-\epsilon, \epsilon)$ and $q_\epsilon=(1-\epsilon^2, \epsilon^2)$ two Bernoulli distribution with different parameters. Again, we have: 
+		\begin{align}
+		\Dchi{p_\epsilon}{q_\epsilon} &= \frac{||1-\epsilon - 1 + \epsilon^2||^2}{1-\epsilon^2} + \frac{||\epsilon-\epsilon^2||^2}{\epsilon^2}= \frac{||\epsilon^2 - \epsilon||^2}{1-\epsilon^2} + ||1-\epsilon||^2 \\
+		\KL{p_\epsilon}{q_\epsilon} &=  (1-\epsilon)\log\frac{1-\epsilon}{1-\epsilon^2} + \epsilon\log\frac{\epsilon}{\epsilon^2}=  (1-\epsilon)\log\frac{1}{1+\epsilon} + \epsilon\log \frac{1}{\epsilon}.
+	\end{align}
+	This time, taking $\epsilon\to 0$, we have $\KL{p_\epsilon}{q_\epsilon} \to 0$ (l’Hôpital’s rule), but $\Dchi{p_\epsilon}{q_\epsilon} \to 1$
+\end{example}
+
+\begin{remark}
+	The objective of these examples is to show that under different divergences, one can have different criteria of convergence. In the first case, $q_n$ converges to $p$ under $L_1$, but not under KL. In the second case, $p_\epsilon$ converges to $q_\epsilon$ under KL but not under $\xi^2$. This give a sense of \emph{hierarchy} across divergences, where some are sais to induce stronger topologies than others. The stronger the topology, the more demanding the conditions for convergence (or fewer sequences are admitted to converge). In general, we consider KL as one of the stronger divergences (but there are some that are even stronger as we just saw).
+\end{remark}
+
+\paragraph{Direct versus reverse KL.} Since $\KL{p}{q}$ is not symmetric, we are interested in studying the \emph{reverse} divergence $\KL{q}{p}$ and understanding how it relates its \emph{direct} counterpart.  
+
+Since $P\ll Q$ is needed for $\KL{p}{q}$, it is required that $P\gg Q$ for $\KL{q}{p}$. This gives intuition of $\KL{p}{q}$ as a metric assessing how well $q$ approximates $p$ (and not viceversa); this is because if there is a set $A\subset\cX$ such that $Q(A) = 0$ and $P(A)>0$ is strongly penalised, unlike the opposite case. 
+
+Let us see a numerical example. 
+
+\begin{example}[Assymetry of the KL between two Gaussians]
+	The KL divergence between two Gaussians is
+	\begin{equation}
+		\KL{\cN(\mu_0,\sigma_0)}{\cN(\mu_1,\sigma_1)} = \log\frac{\sigma_1}{\sigma_0} + \frac{\sigma_0^2 + (\mu_0-\mu_1)^2}{2\sigma_1^2} - \frac{1}{2}. \label{eq:2Gaussians}
+	\end{equation}
+	Let us consider $p=\cN(0,1)$ and $q=\cN(0,v^2)$, and evaluate 
+	\begin{itemize}
+		\item $\KL{p}{q} = \frac{1}{2}(\log v^2 + v^{-2} -1)$
+		\item $\KL{q}{p} = \frac{1}{2}(-\log v^2 + v^2 -1)$.
+	\end{itemize}
+	Fig.~\ref{fig:assymetric_KL} shows these functions, note how the penalisation strength depends on the direction.
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=0.6\textwidth]{img/week1_direct_reverse_KL.pdf}
+	\caption{Direct and reverse KL for zero mean Gaussians as a function of the variance.}
+	\label{fig:assymetric_KL}
+\end{figure}
+\end{example}
+
+\begin{example}[KL gradient flow]
+	Let us now find the approximating $q$ via optimisation for the above example. We can do this via optimisation. Differentiating eq.~\eqref{eq:2Gaussians} wrt to $\mu_1$ and $\sigma_1$, we have
+	\begin{align}
+		\nabla_{\mu_1} \KL{\cN(\mu_0,\sigma_0)}{\cN(\mu_1,\sigma_1)} &= \frac{(\mu_1-\mu_0)}{\sigma_1^2}\\
+		\nabla_{\sigma_1} \KL{\cN(\mu_0,\sigma_0)}{\cN(\mu_1,\sigma_1)} &= \frac{1}{\sigma_1}  - \frac{\sigma_0^2}{\sigma_1^3} = \frac{\sigma_1^2-\sigma_0^2}{\sigma_1^3}
+	\end{align}
+	Where it is clear the this is minimised for $q=p$. Additionally, we can build the gradient descent rule: 
+
+	\begin{align}
+		\mu_n &\to \mu_n -\eta_\mu \frac{(\mu_n-\mu_0)}{\sigma_n^2}\\
+		\sigma_n &\to \sigma_n - \eta_\sigma\frac{\sigma_n^2-\sigma_0^2}{\sigma_n^3}
+	\end{align}
+	Figure \ref{fig:assymetric_KL_flow_Gaussian} implements these recursions. 
+	
+	\begin{figure}[H]
+	\centering
+	\includegraphics[width=0.6\textwidth]{img/week1_KL_gradient_flow.pdf}
+	\caption{KL gradient flow between two Gaussians.}
+	\label{fig:assymetric_KL_flow_Gaussian}
+\end{figure}
+	
+\end{example}
+
+\section{KL and maximum likelihood}
+
