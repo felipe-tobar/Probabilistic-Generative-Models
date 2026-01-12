@@ -21,16 +21,18 @@ X:\Omega \to \cX & Y:\Omega \to \cY & Z:\Omega \to \cZ \\
 Not all three RVs will be present in all our settings. For instance, in classification there is no justification for the latent variable $Z$ (in general), while in clustering, there is no need for $X$. However, we build the general setup here for formality. 
 \end{remark}
 
+We equip $\cX,\cY,\cZ$ with their Borel $\sigma$-algebras $\cB(\cX),\cB(\cY),\cB(\cZ)$, and consider the product measurable space
+\[
+(\cX\times\cY\times\cZ,\; \cB(\cX)\otimes\cB(\cY)\otimes\cB(\cZ)).
+\]
+Then the joint random variable $(X,Y,Z):\Omega\to \cX\times\cY\times\cZ$ is measurable with respect to $\cF$ and the above product $\sigma$-algebra. 
 
-We will also consider the $\sigma$-algebra $\cF$ to be the product Borel $\sigma$-algebra, that is, $\cF = \cB(\cX)\otimes\cB(\cY)\otimes\cB(\cZ)$. This is the smallest $\sigma$-algebra making the joint random variable $(X,Y,Z)$ measurable.
-
-Furthermore, we will assume that the joint probability of $(X,Y,Z)$ has a density, that is, $\forall A\in\cB(\cX),B\in\cB(\cY),C\in\cB(\cZ)$, we have
-
+Furthermore, we will assume that the law of $(X,Y,Z)$ is absolutely continuous with respect to the product base measure on $\cX\times\cY\times\cZ$ (e.g.\ Lebesgue measure when $\cX,\cY,\cZ\subseteq\R^d$), and hence admits a joint density $p(x,y,z)$. That is, for all $A\in\cB(\cX),B\in\cB(\cY),C\in\cB(\cZ)$,
 \begin{equation}
 	\Prob{X\in A,Y\in B, Z\in C} = \int_{A \times B\times C} p(x,y,z)\dx\dy\dz.
 \end{equation}
 
-We will also assume that all marginals and conditional have a density. This includes $p(x,y)$, $p(y|x)$, $p(z|x,y)$, etc. 
+We will also assume that all relevant marginals and conditionals admit densities (with respect to the corresponding base measures), e.g.\ $p(x,y)$, $p(y|x)$, $p(z|x,y)$, etc.
 
 
 \section{Discriminative versus generative}
@@ -40,7 +42,7 @@ The generative approach aims to characterise the complete generative distributio
 \begin{example}[Generative and discriminative views of binary classification]
 	Consider the binary classification problem, where, given an observation $X=x$, one needs to estimate its label $Y$. A discriminative model would directly parametrise $\P(Y|X=x)$. Since this is a binary classification case, without loss of generality, we can assume $Y\in\{0,1\}$, and model $\P(Y=1|X=x)$, since $\P(Y=0|X=x) = 1 - \P(Y=1|X=x)$.  A model for this probability only needs to map $x\in\R^d \to \P(Y=1|X=x)\in[0,1]$. For instance, a reasonable candidate for this is
 	\begin{equation}
-		\P(Y=1|X=x) = \frac{1}{1+e^{-\theta^\top x},}
+		\P(Y=1|X=x) = \frac{1}{1+e^{-\theta^\top x}}
 	\end{equation}
 	which is known as the logistic regression. 
 
@@ -56,7 +58,7 @@ The generative approach aims to characterise the complete generative distributio
 	Therefore, the classifier is 
 	\begin{align}
 		p(Y=1 | X=x) 	&= \frac{p(X=x|Y=1)p(Y=1)}{p(X=x)}\nonumber \\
-						&= \frac{1}{1 + e^{-\log\left(\frac{\pi}{1-\pi}\frac{f_{\theta_1}}{f_{\theta_0}}\right)}}.\label{eq:generative_binary_classification}
+						&= \frac{1}{1 + e^{-\log\left(\frac{\pi}{1-\pi}\frac{f_{\theta_1}(x)}{f_{\theta_0}(x)}\right)}}.\label{eq:generative_binary_classification}
 	\end{align}
 \end{example}
 
@@ -139,7 +141,7 @@ In general, for arbitrary source distributions and maps it is difficult to compu
 \begin{remark}
 	Though the above result provides a closed-form expression for the pushforward measure only when $T$ is a $C^1$ diffeomorphism (continuously differentiable with an the inverse having the same property), we can transform a source RV $X$ into a target RV $T$ with any measurable map. This is because
 	\begin{equation}
-		\P(T\in A) = \sum_{T(B_i) = A} \P(X\in B_i).
+	(T_\#P_X)(A) \;=\; P_X(T^{-1}(A)), \qquad \forall A\in\mathcal B(\mathcal X).
 	\end{equation}
 	Though in general the pdf of $T$ will not be available in closed form.
 \end{remark}
@@ -148,12 +150,12 @@ In general, for arbitrary source distributions and maps it is difficult to compu
 
 Maximum likelihood (ML) is going to be the canonical methodology for training our PGMs, and, as we will see next, it will recover other forms of training criteria in particular cases. 
 
-Consider a PGM for the RV $Y$, with density $p_\theta(y)$, where $\theta\in\Theta$ denotes the model parameter. Also, consider the realisations of $Y$ given by $y_1,y_2,\ldots, y_n$. 
+Consider a PGM for the RV $Y$, with density $p_\theta(y)$, where $\theta\in\Theta$ denotes the model parameter. Also, consider the realisations of $Y$ given by $y_1,y_2,\ldots, y_N$. 
 
 \begin{definition}[Likelihood function]
 	The likelihood of the parameter $\theta$ is the function $L:\Theta\to\R_+$ given by the probability density function of $Y$ evaluated on the observations. That is, 
 	\begin{equation}
-		L(\theta) = p_\theta(y_1,y_2,\ldots,y_n). 
+		L(\theta) = p_\theta(y_1,y_2,\ldots,y_N). 
 	\end{equation} 
 \end{definition}
 
@@ -171,9 +173,9 @@ Consider a PGM for the RV $Y$, with density $p_\theta(y)$, where $\theta\in\Thet
 \end{definition}
 
 \begin{remark}
-	In general (but, importantly, not always) we will consider i.i.d observations, in which case the likelihood factorises as $L(\theta) = \prod_{i=1}^n p_\theta(y_i)$. Furthermore, when optimising the likelihood we will consider the log-likelihood instead; in the i.i.d. case, this is
+	In general (but, importantly, not always) we will consider i.i.d observations, in which case the likelihood factorises as $L(\theta) = \prod_{n=1}^N p_\theta(y_n)$. Furthermore, when optimising the likelihood we will consider the log-likelihood instead; in the i.i.d. case, this is
 	\begin{equation}
-		l(\theta) = \log L(\theta) = \sum_{i=1}^n \log p(y_i).
+		l(\theta) = \log L(\theta) = \sum_{n=1}^N \log p_\theta(y_n).
 	\end{equation}
 \end{remark}
 
@@ -182,11 +184,11 @@ Consider a PGM for the RV $Y$, with density $p_\theta(y)$, where $\theta\in\Thet
 	\begin{equation}
 		Y|x \sim \cN(ax, \sigma^2), a,x\in\R, \sigma^2\in\R_+.
 	\end{equation}
-	This is equivalent to $Y=ax + \epsilon, \epsilon\sim\cN(0,\sigma^2)$. The parameters in this setting are  $\theta = (a,\sigma^2)$. Now consider the observations $\{(x_i,y_i)\}_{i=1}^n$. 
+	This is equivalent to $Y=ax + \epsilon, \epsilon\sim\cN(0,\sigma^2)$. The parameters in this setting are  $\theta = (a,\sigma^2)$. Now consider the observations $\{(x_n,y_n)\}_{n=1}^N$. 
 
-	Since $p(y_i|x_i) = \frac{1}{\sqrt{2\pi\sigma^2}}\exp\left(\frac{-1}{2\sigma^2}(y_i-ax_i)^2\right)$, we can write the log-likelihood as 
+	Since $p(y_n|x_n) = \frac{1}{\sqrt{2\pi\sigma^2}}\exp\left(\frac{-1}{2\sigma^2}(y_n-ax_n)^2\right)$, we can write the log-likelihood as 
 	\begin{equation}
-		l(\theta) = \sum_{i=1}^{n} \frac{-1}{2}\log 2\pi\sigma^2 + \frac{1}{2\sigma^2}(y_i-ax_i)^2. \label{eq:ML_linear_regression}
+		l(\theta) = \sum_{n=1}^{N} \frac{-1}{2}\log 2\pi\sigma^2 - \frac{1}{2\sigma^2}(y_n-ax_n)^2. \label{eq:ML_linear_regression}
 	\end{equation}
 	The optimal $(a,\sigma^2)$ can be found in closed form using the first order optimality conditions. 
 \end{example}
@@ -196,35 +198,35 @@ Consider a PGM for the RV $Y$, with density $p_\theta(y)$, where $\theta\in\Thet
 \end{remark}
 
 \begin{example}[Binary classification]
-	Consider observations $\{(x_i,y_i)\}_{i=1}^n\subset \R^d\times \{0,1\}$ from a binary classification setting. Model the classifier as 
+	Consider observations $\{(x_n,y_n)\}_{n=1}^N\subset \R^d\times \{0,1\}$ from a binary classification setting. Model the classifier as 
 	\begin{equation}
 		p_\theta(y=1|x) = \sigma(s(x)),
 	\end{equation}
-	where $\sigma(s(x)) = \frac{1}{1+e^{-s(x)}}$, and $s:\R^d\top\R$ is a feature extractor (e.g., $s(x) = a^\top x + b$). Assuming that the observations are i.i.d., we have
+	where $\sigma(s(x)) = \frac{1}{1+e^{-s(x)}}$, and $s:\R^d\to \R$ is a feature extractor (e.g., $s(x) = a^\top x + b$). Assuming that the observations are i.i.d., we have
 	\begin{equation}
-		L(\theta) = \prod_{i=1}^n p(y_i|x_i) = \prod_{i=1}^n \sigma(s(x_i))^{y_i} (1-\sigma(s(x_i)))^{1-y_i}, 
+		L(\theta) = \prod_{n=1}^N p(y_n|x_n) = \prod_{n=1}^N \sigma(s(x_n))^{y_n} (1-\sigma(s(x_n)))^{1-y_n}, 
 	\end{equation}
 	and equivalently
 	\begin{equation}
-		l(\theta) = \sum_{i=1}^n y_i \log \sigma(s(x_i)) + (1-y_i)\log (1-\sigma(s(x_i))). 
+		l(\theta) = \sum_{n=1}^N y_n \log \sigma(s(x_n)) + (1-y_n)\log (1-\sigma(s(x_n))). 
 	\end{equation}
 	Does this expression seem familiar? If not, we will find out soon what this is.
 \end{example}
 
 \begin{example}[Clustering]
-Consider a set of observations $\{x_i\}_{i=1}^n\in\R^d$ and implement a clustering algorithm. We will assume that there are $K\in\N$ clusters, each specified by a density $p_k, k=1,\ldots, n$; this means that the probability of a sample $x$ coming from the $k$-th cluster is $\P(x\in C_k) = \pi_k$, where $\forall k, 0\geq \pi_k \geq 1$ and $\sum_{k=1}^K \pi_k = 1$. 
+Consider a set of observations $\{x_n\}_{n=1}^N\in\R^d$ and implement a clustering algorithm. We will assume that there are $K\in\N$ clusters, each specified by a density $p_k, k=1,\ldots, K$; this means that the probability of the RV $X$ coming from the $k$-th cluster is $\P(X\in C_k) = \pi_k$, where $\forall k, 0\leq \pi_k \leq 1$ and $\sum_{k=1}^K \pi_k = 1$. 
 
 This is a mixture model, with density $p(x)=\sum_{k=1}^K \pi_k p_k(x)$, and parameters given by the cluster probabilities $\pi_k$ and the parameters of the densities $p_k = p_{\theta_k}$. The log-likelihood is 
 \begin{equation}
-	l(\theta) = \sum_{i=1}^n \log \sum_{k=1}^K \pi_k p_k(x_i) \label{eq:clustering_likelihood}
+	l(\theta) = \sum_{n=1}^N \log \sum_{k=1}^K \pi_k p_k(x_n) \label{eq:clustering_likelihood}
 \end{equation}
 Note that there are two issues associated to optimising eq.~\eqref{eq:clustering_likelihood}. 
 \begin{itemize}
 	\item We do not recover the cluster assignments.
-	\item The problem is ill-posed. E.g., if $p_k=\cN(\mu_k,\Sigma_k)$, which is the usual choice, we can set $\mu_k=x_i, \Sigma_k=0$ which gives $l=\infty$.
+	\item The problem is ill-posed. E.g., if $p_k=\cN(\mu_k,\Sigma_k)$, which is the usual choice, we can set $\mu_k=x_n, \Sigma_k=0$ which gives $l=\infty$.
 \end{itemize}	
 
-We can overcome this drawback by introducing a collection of latent random variables $Z_{nk}$, that represents the cluster assignments. That is, 
+We can overcome this drawback by introducing a collection of latent random variables $Z_{nk}\in\{0,1\}$, that represents the cluster assignments. That is, 
 \begin{equation}
 	Z_{nk} = 1 \iff x_n\in C_k.
 \end{equation}
@@ -309,7 +311,7 @@ This directly implies that the uniform distribution over $\{1,2,\ldots, K\}$ has
 
 
 \begin{example}[Bernoulli distribution]
-	Consider $X\sim p_X(x) = \theta^x (1-\theta)^{1-x}, \theta\in[0,1].$ The entropy is given by $H(X) = -\theta\log\theta + (1-\theta)\log(1-\theta)$. Figure \ref{fig:entropy_bernoulli} shows this function. 
+	Consider $X\sim p_X(x) = \theta^x (1-\theta)^{1-x}, \theta\in[0,1].$ The entropy is given by $H(X) = -\theta\log\theta - (1-\theta)\log(1-\theta)$. Figure \ref{fig:entropy_bernoulli} shows this function. 
 	\begin{figure}[H]
 	\centering
 	\includegraphics[width=0.6\textwidth]{img/week1_bernoulli_entropy.pdf}
@@ -328,7 +330,7 @@ As a consequence, the average message size is the entropy $H(X)$, and thus can b
 
 Now let us go back to our communication channel $A\to B$, where the receiver in $B$ now mistakenly believes that $X\sim q_X$. $B$'s estimated entropy, or averaged information, would be 
 \begin{equation}
-	H_{CE}(p_X,q_X) = -\sum_{x=1}^K p_X(x_i) \log q_X(x_i).
+	H_{CE}(p_X,q_X) = -\sum_{x=1}^K p_X(x) \log q_X(x).
 \end{equation}
 Following the same rationale as above, this can be interpreted as the cost of compressing the sequence $x_1,x_2,x_3,\ldots$ using $q_x$. 
 
@@ -346,10 +348,10 @@ Let us see:
 
 Therefore, $H(p) \leq H(p,q)$, with equality only achieved when $p=q$, as per Remark \ref{rem:jensen_equality}.
 \begin{remark}
-	Minimising the correntropy wrt to one of its arguments is precisely an attempt to match $p=q$. 
+	Minimising the cross-entropy wrt to one of its arguments is precisely an attempt to match $p=q$. 
 \end{remark}
 
-The use of the entropy/correntropy that is going to be more relevant in our case is via its application to continuous RVs. This extension is 
+The use of the entropy/cross-entropy that is going to be more relevant in our case is via its application to continuous RVs. This extension is 
 \begin{align}
 	H(p) = -\int_\cX p(x)\log p(x)\dx\\
 	H(p,q) = -\int_\cX p(x)\log q(x)\dx\\
@@ -419,7 +421,7 @@ The KL is a \emph{divergence}, i.e., a function that quantifies how far $p$ is f
 \end{itemize}
 Critically, the $\mathrm{KL}(p \,\|\, q)$ is only defined when $P \ll Q$. 
 
-\section[KL divergence as a metric to compare distributions]{KL divergence as a metric to compare $p$ and $q$}
+\section[KL divergence as a way to compare distributions]{KL divergence as a metric to compare $p$ and $q$}
 
 In the continuous case, we are interested in understanding what type of convergence KL gives. Let us consider, other two divergences: 
 \begin{itemize}
@@ -428,12 +430,24 @@ In the continuous case, we are interested in understanding what type of converge
 \end{itemize}
 
 \begin{example}[KL versus $L_1$]
-	Consider $p(x)=\uni{0,1}$ and $q_n(x) = \one{x\in[0,1/n]}e^{-n} + \one{x\in[1/n,1]} c_n $, with $c_n\ge 0$ so that $q$ integrates 1 ($n > 1$). Note that here, we have
+	Consider $p(x)=\uni{0,1}$ and $q_n(x) = \one{x\in[0,1/n]}e^{-n} + \one{x\in[1/n,1]} c_n $, with $c_n\ge 0$ so that $q$ integrates 1 ($n > 1$). 
+	
+	Let us first compute $c_n$ explicitly. Since $q_n$ must integrate to one, we require $\int_0^{1/n} e^{-n}\,\mathrm{d}x + \int_{1/n}^1 c_n\,\mathrm{d}x = 1$,
+	which yields
+	\[
+	\frac{1}{n}e^{-n} + \left(1-\frac{1}{n}\right)c_n = 1.
+	\]
+	Solving for $c_n$, we obtain
+	\begin{equation}
+		c_n = \frac{1-\frac{1}{n}e^{-n}}{1-\frac{1}{n}} = \frac{n-e^{-n}}{n-1}.	\label{eq:cn_KL_example}
+	\end{equation}
+
+	Note that here, we have
 	\begin{align}
 		\DL{p}{q_n} &= \int_0^{1/n} |e^{-n}-1|\dx + \int_{1/n}^1 |c_n -1|\dx = \frac{|e^{-n}-1|}{n} + \frac{n|c_n-1|}{n-1}\\
 		\KL{p}{q_n} &=  \int_0^{1/n} -\log e^{-n} \dx + \int_{1/n}^1 -\log c_n \dx =  1 + \frac{-n}{n-1}\log c_n.
 	\end{align}
-	Now take $n\to\infty$. For $q_n$ to be well defined, $c_n$ has to converge to 1. Therefore, $\DL{p}{q}\to 0$. However, note that $\KL{p}{q} \to 1$.  
+	Now take $n\to\infty$. From eq.~\eqref{eq:cn_KL_example} we can see that $c_n$ converges to 1. Therefore, $\DL{p}{q}\to 0$. However, note that $\KL{p}{q} \to 1$.  
 \end{example}
 
 \begin{example}[KL versus $\chi^2$]
@@ -506,10 +520,16 @@ Though it sounds good, this is unfeasible in practice since $p$ is unknown. Howe
 \begin{align}
 		\theta^\star 
 		&= \argmin \int_\cX p(x) \log p(x)\dx - \int_\cX p(x) \log q_\theta(x)\dx\\
-		&= \argmax \mathbb{E}_p[q_\theta(x)]\\
-		&\approx \argmax \sum_{x_i}[q_\theta(x_i)],
+		&= \argmax \mathbb{E}_p[\log q_\theta(x)]\\
+		&\approx \argmax \sum_{x_i}\log q_\theta(x_i),
 \end{align}
 where the last approximation is due to Monte Carlo. This reveals that maximum likelihood is (asymptotically) equivalent to minimising the KL divergence between the model candidate and the (true) empirical distribution.
 
 \section*{Concluding remarks}
 
+As we will throughout the module, when designing/chossing a PGM, we will be faced with the following scenarios. 
+
+\begin{itemize}
+	\item \textbf{Explicit-likelihood models:} These include classical statistical models such as Gaussians, exponentials, Bernoulli, $Xi^2$, log-normal, but also combinations or transformations that we construct as long as they have an explicit likelihood. These are Gaussian mixtures, piece-wise defined distributions, and amy pushforward model constructed through an invertible transformation so that its density can be calculated via the change of variable theorem. These last models are referred to as normalising flows, as they assume a Gaussian source measure. 
+	\item \textbf{Implicit models:} As the name suggests, these models are only implicitly defined via a data-generating mechanism, usually involving sampling. For instance, take a RV $Z\in\R^d\sim\cN(0,I_d)$ and construct $X=T_\theta(Z)$, where $T_\theta$ is collection of neural networks which are sequentially applied to $Z$ with the aim to replicate learnt dynamics that make $X$ \emph{flow} towards the desired distribution. Depending on the parametrisation, these models are known as score-based models, diffusion models, or flow matching.   
+\end{itemize}
