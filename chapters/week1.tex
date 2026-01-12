@@ -497,5 +497,19 @@ Let us see a numerical example.
 	
 \end{example}
 
-\section{KL and maximum likelihood}
+\paragraph{section}{KL and maximum likelihood.} Let us now return to the setting of the learning problem. Consider a true model given by $p$ and iid observations $x_1,x_2,\ldots,x_N\sim p(x)$. We could use the KL to look for the best approximator of $p$ with a given family of candidate models $\{q_\theta, \theta\in\Theta\}$. That is, 
+\begin{equation}
+	\theta^\star = \argmin \KL{p}{q_\theta}.
+\end{equation}
+
+Though it sounds good, this is unfeasible in practice since $p$ is unknown. However, note that there is a workaround to that. We can write the above expression as 
+\begin{align}
+		\theta^\star 
+		&= \argmin \int_\cX p(x) \log p(x)\dx - \int_\cX p(x) \log q_\theta(x)\dx\\
+		&= \argmax \mathbb{E}_p[q_\theta(x)]\\
+		&\approx \argmax \sum_{x_i}[q_\theta(x_i)],
+\end{align}
+where the last approximation is due to Monte Carlo. This reveals that maximum likelihood is (asymptotically) equivalent to minimising the KL divergence between the model candidate and the (true) empirical distribution.
+
+\section*{Concluding remarks}
 
