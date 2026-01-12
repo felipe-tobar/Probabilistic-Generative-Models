@@ -479,12 +479,12 @@ Let us see a numerical example.
 		\item $\KL{p}{q} = \frac{1}{2}(\log v^2 + v^{-2} -1)$
 		\item $\KL{q}{p} = \frac{1}{2}(-\log v^2 + v^2 -1)$.
 	\end{itemize}
-	Fig.~\ref{fig:assymetric_KL} shows these functions, note how the penalisation strength depends on the direction.
+	Fig.~\ref{fig:asymmetric_KL} shows these functions, note how the penalisation strength depends on the direction.
 \begin{figure}[H]
 	\centering
 	\includegraphics[width=0.6\textwidth]{img/week1_direct_reverse_KL.pdf}
 	\caption{Direct and reverse KL for zero mean Gaussians as a function of the variance.}
-	\label{fig:assymetric_KL}
+	\label{fig:asymmetric_KL}
 \end{figure}
 \end{example}
 
@@ -500,18 +500,18 @@ Let us see a numerical example.
 		\mu_n &\to \mu_n -\eta_\mu \frac{(\mu_n-\mu_0)}{\sigma_n^2}\\
 		\sigma_n &\to \sigma_n - \eta_\sigma\frac{\sigma_n^2-\sigma_0^2}{\sigma_n^3}
 	\end{align}
-	Figure \ref{fig:assymetric_KL_flow_Gaussian} implements these recursions. 
+	Figure \ref{fig:asymmetric_KL_flow_Gaussian} implements these recursions. 
 	
 	\begin{figure}[H]
 	\centering
 	\includegraphics[width=0.6\textwidth]{img/week1_KL_gradient_flow.pdf}
 	\caption{KL gradient flow between two Gaussians.}
-	\label{fig:assymetric_KL_flow_Gaussian}
+	\label{fig:asymmetric_KL_flow_Gaussian}
 \end{figure}
 	
 \end{example}
 
-\paragraph{section}{KL and maximum likelihood.} Let us now return to the setting of the learning problem. Consider a true model given by $p$ and iid observations $x_1,x_2,\ldots,x_N\sim p(x)$. We could use the KL to look for the best approximator of $p$ with a given family of candidate models $\{q_\theta, \theta\in\Theta\}$. That is, 
+\paragraph{KL and maximum likelihood.} Let us now return to the setting of the learning problem. Consider a true model given by $p$ and iid observations $x_1,x_2,\ldots,x_N\sim p(x)$. We could use the KL to look for the best approximator of $p$ with a given family of candidate models $\{q_\theta, \theta\in\Theta\}$. That is, 
 \begin{equation}
 	\theta^\star = \argmin \KL{p}{q_\theta}.
 \end{equation}
