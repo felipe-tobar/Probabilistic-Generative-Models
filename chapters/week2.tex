@@ -1,0 +1,270 @@
+
+\chapter{Latent variable models and Expectation Maximisation}
+
+\textbf{NB:} This is based on Chapter 9 of \cite{bishop2006prml}.
+
+\section{Gaussian mixtures}
+
+Consider a dataset $\{x_1,x_2,\ldots,x:N\}\subset\R^d$. Our task is to partition this set into $K\in\N$ subsets; we will consider $K$ known for now.  Intuitively, each subset---referred to as \emph{cluster} from now on---of points should share some common or similar patterns; a formal definition of similarity in this case will be ignored for now. 
+
+A natural solution for this is to define $K$ prototypes $\{\mu_1,\mu_2,\ldots,\mu_K\}\subset\R^d$ and determine the assignment of each datapoint $x_n$ to each prototype $\mu_k$, according to a given criterion. 
+
+To solve this optimisation problem, we can define a set of binary variables $\{r_{nk}\}_{nk}\subset\{0,1\}$, where 
+\begin{equation}
+    r_{nk}=1 \iff x_n\text{ is assigned to } \mu_k. 
+\end{equation}
+
+Then, using the Euclidean distance as similarity criterion, the objective can be
+\begin{equation}
+    J = \sum_{n=1}^{N}\sum_{k=1}^{K} r_{nk} ||x_n-\mu_k||^2.\label{eq:J_k-means}
+\end{equation}
+The solution to the clustering problem obtained from the optimisation of eq.~\eqref{eq:J_k-means} is
+\begin{align}
+r_{nk} &=
+\begin{cases}
+1, & \text{if } k=\argmin_j||x_n-\mu_j||^2, \\
+0, & \text{if not}.
+\end{cases} \label{eq:kmeans1}\\
+\mu_k &= \frac{\sum_{n=1}^{N}r_{nk}x_n}{\sum_{n=1}^{N}r_{nk}}.\label{eq:kmeans2}
+\end{align}
+
+The solution can be found via iteratively implementing these equations, which is known as the $k$-means algorithm. 
+
+\begin{remark}
+    Observe that the $k$-means recursion ensure convergence in a finite number of steps: this is because eq.~\eqref{eq:kmeans1} define a discrete number of solutions, and \eqref{eq:kmeans2} is the global optima for a given $\{r_{nk}\}_{nk}$.
+\end{remark}
+
+There are some known drawbacks of $k$-means, for instance 
+\begin{itemize}
+    \item Speed: computing the assignment variables has a cost $\cO(NK)$. 
+    \item It depends on the Euclidean distance that might not be robust to outliers
+    \item It only provide hard assignments, not a degree of \emph{responsibility}.  
+\end{itemize}
+
+\section{The Gaussian mixture model}
+
+Let us consider the following PGM: 
+\begin{equation}
+    p(x) = \sum_{k=1}^{K} \pi_k \cN(x; \mu_k,\Sigma_k),
+\end{equation}
+where $0\ll \pi_k \ll 1, \sum_{k=1}^{K}\pi_k=1$, $\mu_k\in\R^d$ and $\Sigma_k\in\R^{d\times d}$.
+
+This model suggests to be an improved clustering model over $K$-means, since it---at least---allows for learning the shape (variance) of each cluster, admits the definition of a soft assignment variable.
+
+However, note that the likelihood of this models is ill posed. Denoting the parameters by $\theta = \{\pi_{1:K},\mu_{1:K}, \Sigma_{1:K}\}$ and the i.i.d.~data $\x =\{x_1,x_2,\ldots,x_n\}$ the log-likelihood is given by 
+\begin{equation}
+    l(\theta) = \log p(\x|\theta) = \log\prod_{n=1}^{N} p(x_n|\theta) = \sum_{n=1}^{N} \log p(x_n|\theta) = \sum_{n=1}^{N} \log \sum_{k=1}^{K} \pi_k \cN(x; \mu_k,\Sigma_k).
+    \label{eq:likelihood_GMM}
+\end{equation}
+This objective can reach an infinite value if a component is assigned to a single datapoint with a vanishing variance. Additionally, for each possible assignment, there are $K!$ different solution that provide such assignment.  
+
+We will derive an equivalent formulation to the PGM above that admits an easier training procedure. To this end,  let us introduce a set of $K$ latent variables $\{z_{k}\}\subset\{0,1\}$, $\sum_{k=1}^K z_{k} = 1$. We can write 
+\begin{equation}
+    p(x,z) = p(x|z)p(z).
+\end{equation}
+Also, defining $p(z_{k}=1) = \pi_k$, we can express the pmf/pdf: 
+\begin{align}
+    p(z) &= \prod_{k=1}^{K} \pi_k^{z_k}\\
+    p(x|z) &= \prod_{k=1}^{K} \cN(\mu_k,\Sigma_k)^{z_k},
+\end{align}
+with the marginal pdf over $x$ as 
+\begin{equation}
+    p(x) = \sum_{k=1}^{K} p(z_k)p(x|z_k)= \sum_{k=1}^{K} \pi_k \cN(x; \mu_k,\Sigma_k),
+\end{equation}
+Thus, showing that the formulations are equivalent. 
+
+In this formulation, let us define the \emph{responsibilities} of the $k$-th component to explain the observation $x$ given by
+\begin{align}
+    \gamma(z_k) \defeq p(z_h = 1|x) 
+    &= \frac{p(x|z_k=1)p(z_k=1)}{\sum_{j=1}^{K}p(x|z_j=1)p(z_j=1)}\\
+    &= \frac{\pi_k \cN(x; \mu_k,\Sigma_k)}{\sum_{j=1}^{K} \pi_j \cN(x; \mu_j,\Sigma_j)}.
+\end{align}
+
+\begin{remark}
+    The latent-variable formulation of the GMM allows for direct sampling from that PGM: first sample $z\sim p(z)=\prod_{k=1}^{K}$, and then sample $x\sim p(x|z)= \prod_{k=1}^{K} \cN(\mu_k,\Sigma_k)^{z_k}$. This is known as \emph{ancestral sampling}.
+\end{remark}
+
+
+\section{Expectation Maximisation for GMMs}
+
+We will introduce a learning approach for PGMs that feature a latent variable called Expectation Maximisation (EM). First we will present in in the particular case of the GMM model, and then in the general case. 
+
+The first order optimality conditions for the log-likelihood in eq.~\eqref{eq:likelihood_GMM} give
+\begin{align}
+    \mu_k &= \frac{1}{N_k} \sum_{n=1}^N \gamma(z_{nk})x_n\label{eq:GMM_LL_soln1}\\
+    \Sigma_k & = \frac{1}{N_k} \sum_{n=1}^N \gamma(z_{nk})(x_n - \mu_k)(x_n - \mu_k)^\top\label{eq:GMM_LL_soln2}\\
+    \pi_k &= \frac{N_k}{N},\label{eq:GMM_LL_soln3}
+\end{align}
+where we have defined the effective number of samples per component as $N_k = \sum_{n=1}^N \gamma(z_{nk})$.
+
+\begin{exercise}
+    Derive eqs.~\eqref{eq:GMM_LL_soln1}-\eqref{eq:GMM_LL_soln3}
+\end{exercise}
+
+\begin{remark}
+    Observe how the optimal mean and variance of each component is a weighted average of all the data points, where the weights are proportional to the responsibility (contribution) of that component to generation of the sample. Also, note that eqs.~\eqref{eq:GMM_LL_soln1}-\eqref{eq:GMM_LL_soln3} can be considered as the soft-assignment version of the $K$-means solutions, with the additional flexibility of having an learnable expression for the shape of the clusters.  
+\end{remark}
+
+Eqs.~\eqref{eq:GMM_LL_soln1}-\eqref{eq:GMM_LL_soln3} do not provide a direct closed-form solution, since they depend on the responsibilities $\gamma(z_{nk})$ which are functions of the latent variable. However, they can still be implemented in following the steps: 
+\begin{itemize}
+    \item[E] Compute $\gamma(z_{nk}) = p(z_{nk}=1|\x)$
+    \item[M] use $\gamma(z_{nk})$ to compute eqs.~\eqref{eq:GMM_LL_soln1}-\eqref{eq:GMM_LL_soln3}. 
+\end{itemize}
+
+
+\section{An interpretation of EM}
+
+Let us now leave the GMM aside. In more general, perhaps abstract, terms, the goal of the  EM algorithm is to find maximum likelihood solutions for latent variable models (LVMs) by breaking down the the optimisation problem into a functional approximation of the likelihood, and the the (simpler) optimisation of the approximation. 
+
+Recall our notation involving a an observed variable $x$ and a latent variable $z$. In general LVMs, the log-likelihood is given by
+
+\begin{equation}
+    \log p(x|\theta) = \int_\cX p(x|\theta,z)p(z|\theta)\dtheta. \label{eq:LVM_LL}
+\end{equation}
+\textbf{NB:} We treat both the discrete and continuous equivalently.
+
+In general, direct optimisation of eq.\eqref{eq:LVM_LL} is difficult. In fact, even calculating the above expression is only possible in limited cases, since mixtures do not mix well with the logarithm. In fact, even for likelihood in the exponential family, the mixture is not longer exponential and thus the application of the logarithm does not remove the exponential as in the single-Gaussian case.  
+
+Let us then consider the hypothetical scenario where we have access to the values of $z$ alongside the observed $x$. 
+
+\begin{definition}
+    We will refer to the $\{\x,\z\}$ as the complete dataset, while $\x$ will be the \emph{observed} or \emph{incomplete} dataset. 
+\end{definition}
+
+The related likelihood to the complete dataset would be 
+\begin{align}
+    \log p(\x,\z|\theta) 
+    &= \log \prod_{n=1}^{N} p(x_n,z_n|\theta)\\
+    &= \log \prod_{n=1}^{N} p(x_n|z_n,\theta)p(z_n|\theta)\\
+    &= \sum_{n=1}^{N} \log  p(x_n|z_n,\theta)  +  \log p(z_n|\theta)\label{eq:complete-data_likelihood}
+\end{align}
+which we will assume are simpler to evaluate and  optimise.
+
+This, however, is impractical since $\z$ is unknown. An interesting interpretation of this optimisation problem is presented next.
+
+\begin{remark}
+    Since $z_n$ is not observed, the complete-data log-likelihood in eq.~\eqref{eq:complete-data_likelihood} can be interpreted as a random function. Therefore, an alternative optimisation strategy is estimate its expectation (E step) and optimise this deterministic expression (M step). We will formally justify why taking the expectation is more than an intuition. 
+\end{remark}
+
+In more detail, the 2-step optimisation procedure can be implemented to move from a candidate solution $\theta^\text{old}$ by first computing $p(\z|\x,\theta^\text{old})$ and then the expectation of the complete-data log-likelihood in eq.~\eqref{eq:complete-data_likelihood} given by 
+\begin{equation}
+    Q(\theta,\theta^\text{old}) = \sum_{z} \log p(\x,\z|\theta) p(\z|\x, \theta^\text{old}),
+\end{equation}
+to finally implement 
+\begin{equation}
+    \theta^\text{new} =  \argmax_\theta  Q(\theta,\theta^\text{old}).
+\end{equation} 
+
+\begin{remark}
+    This procedure can also be used for maximum a posteriori estimation, in which case $  Q(\theta,\theta^\text{old}) \to   Q(\theta,\theta^\text{old}) + \log p(\theta)$ incorporates the prior over the parameter. 
+\end{remark}
+
+Now let us return to the GMM case and feed back these observations. For the GMM, the complete-data log-likelihood is
+\begin{equation}
+    p(\x,\z|\theta) = \prod_{n=1}^{N}\prod_{k=1}^{K} \pi_k^{z_{nk}}\cN(x_n|\mu_k,\Sigma_k)^{z_{nk}},
+\end{equation}
+and thus the log-likelihood issues
+\begin{equation}
+    l(\theta) = \sum_{n=1}^{N}\sum_{k=1}^{K} z_{nk} \left(\log \pi_k + \log \cN(x_n|\mu_k,\Sigma_k)\right), \label{eq:complete-data-loglikehood-GM}
+\end{equation}
+which is tractable. 
+
+\begin{remark}
+    The objective in eq.~\eqref{eq:complete-data-loglikehood-GM} is straightforward to optimise: since only one term in the $k$-sum is non-zero, which means the that mean and covariances are simple estimates as in the case of the single Gaussian. Furthermore, imposing the first order optimality condition and enforcing the $\sum_{k=1}^K\pi_k = 1$, gives $\pi_k = \sum_{n=1}^N x_n/N$ directly.
+\end{remark}
+
+
+Recall that this optima is a function of $\z$, so we need to compute the expectation wrt to it. We have
+\begin{equation}
+    p(\z|\x,\theta) \propto p(\z,\x|\theta) = \prod_{n=1}^{N}\prod_{k=1}^{K} \underbrace{\pi_k^{z_{nk}}\cN(x_n|\mu_k,\Sigma_k)^{z_{nk}}}_{\propto p(z_{nk}|x_n,\theta)},
+\end{equation}
+which means that $ p(\z|\x,\theta) $ factorises wrt to $n$ and $k$, and thus all the $z_n$ are independent. This is reasonable, since the cluster responsibilities over one samples should affect the rest (due to the i.i.d.assumption).
+
+The expectation of $\z$ can be computed as follows, 
+\begin{align}
+    \E{z_{nk}} 
+    &= 1\cdot p(z_{nk} = 1 | \x,\theta) + 0\cdot p(z_{nk} = 0 | \x,\theta)\\
+    &=  p(z_{nk} = 1 | \x,\theta)\\
+    &=  \gamma(z_{nk})\\
+    &\defeq \frac{\pi_k \cN(x_n|\mu_k,\Sigma_k)}{\sum_{j=1}^{K}\pi_j \cN(x_n|\mu_j,\Sigma_j)}
+\end{align}
+Note fm eq.{}\eqref{eq:complete-data-loglikehood-GM} that the objective is linear in $z_{nk}$, which makes the computation of its expectation direct:
+\begin{equation}
+    \mathbf{E}_z \log p(\x,\z|\theta) = \sum_{n=1}^{N}\sum_{k=1}^{K} \gamma(z_{nk}) \left(\log \pi_k + \log \cN(x_n|\mu_k,\Sigma_k)\right).
+\end{equation}
+
+\begin{exercise}
+    Show that GMM recovers $K$-means. For that, choose $p(x|\mu_k,\Sigma_k) = \cN(x|\mu_k,\epsilon I)$ with $\epsilon>0$ fixed to show that you recover a \emph{soft-assignment} version of $K$-means. Then, take $\epsilon\to 0$ to recover vanilla $K$-means.
+\end{exercise}
+
+\begin{exercise}
+    See the applications of EM to mixtures of Bernoulli and Bayesian linear regression in [Bishop].
+\end{exercise}
+
+\section{EM in its general form}
+
+Recall: 
+\begin{equation}
+    \underbrace{p(\x|\theta)}_{\text{difficult}} = \sum_\z \underbrace{p(\x,\z|\theta)}_{\text{easier}}.
+\end{equation}
+We are interested in deriving EM as a model-approximation approach. To that end, let us consider a distribution over the latent variable $q(z)$; intuitively, this distribution will approximate $p(z|x,\theta)$. For any choice of $q$, the following holds: 
+
+\begin{align*}
+    \log p(x|\theta) 
+    &=  \sum_{z} q(z) \log p(x|\theta) \quad &&\leftarrow \quad \log p(x|\theta) \text{is constant wrt } z\\
+    &=  \sum_{z} q(z) \log \left(p(x|\theta) \frac{p(z|x,\theta)q(z)}{p(z|x,\theta)q(z)}\right)  \quad &&\leftarrow \quad \text{multiply by 1}\\
+    &=  \sum_{z} q(z) \log \left( \frac{p(x,z|\theta)}{q(z)}\cdot \frac{q(z)}{p(z|x,\theta)} \right)  \quad &&\leftarrow \quad \text{arrange}\\
+    &= \underbrace{\sum_{z} q(z) \log \left( \frac{p(x,z|\theta)}{q(z)} \right)}_{\cL(q,\theta)} + \underbrace{\sum_{z} q(z) \log \left( \frac{q(z)}{p(z|x,\theta)} \right)}_{\KL{q(z)}{p(z|x,\theta)}}  \quad &&\leftarrow \quad \text{split}\\
+\end{align*}
+
+\begin{remark}
+    Recall that the KL is always non-negative, meaning that $\KL{q(z)}{p(z|x,\theta)}$ is a lower bound for $\log p(x|\theta)$.
+\end{remark}
+
+EM breaks the ML problem into two simpler problems related to the computation of a lower bound and its optimisation. The objective above can be minimised in two stages: 
+\begin{itemize}
+    \item First, the distribution $q$ is chosen in order to minimise the term $\KL{q(z)}{p(z|x,\theta)}$, where, the optimal solution in $q(z) = p(z|x,\theta)$.
+    \item Then, using that choice for $q$, the term $\cL(q,\theta)$ can be optimised. Notice that this term is an expectation  
+\end{itemize}
+
+\begin{remark}
+     This view formalises the intuition that we presented for the GMM case. The choice of the taking the expectation of the complete log-likelihood is not arbitrary, but follows from finding the optimal approximating distribution in the KL sense.
+\end{remark}
+
+\missing{A few more things to include: Monotonicity of EM its ability to fix the ill-posedness of the objective}
+
+\section{Concluding remarks}
+
+\missing{to be completed}
+\subsection{Suggested exercises}
+
+\begin{enumerate}
+    \item \textbf{Latent variable models and incomplete data (theory).}  
+    \begin{enumerate}
+        \item Define a latent variable model and distinguish between complete and incomplete data.
+        \item Explain why direct maximisation of the marginal likelihood is often intractable.
+        \item Describe how the introduction of latent variables simplifies modelling but complicates inference.
+    \end{enumerate}
+
+    \item \textbf{Expectation–Maximisation algorithm  (theory).}  
+    Consider a latent variable model with parameters $\theta$.
+    \begin{enumerate}
+        \item Derive the EM algorithm starting from the marginal log-likelihood.
+        \item Define the $Q$-function and explain the role of the E-step and the M-step.
+        \item Prove that each EM iteration does not decrease the log-likelihood.
+    \end{enumerate}
+    \item \textbf{Gaussian mixture models (coursework).}  
+    \begin{enumerate}
+        \item Implement the EM algorithm for Gaussian mixture models.
+        \item Investigate the effect of initialisation on convergence.
+        \item Illustrate the relationship between $k$-means and GMMs by varying the covariance structure.
+    \end{enumerate}
+
+    \item \textbf{Likelihood degeneracy and regularisation (coursework).}  
+    \begin{enumerate}
+        \item Demonstrate empirically the likelihood degeneracy of Gaussian mixture models.
+        \item Propose and implement at least one regularisation strategy.
+        \item Analyse how regularisation affects the learned parameters and likelihood.
+    \end{enumerate}
+\end{enumerate}
+

@@ -1,4 +1,3 @@
-%!TEX root = ../lecture_nojtes.tex
 
 \chapter{Foundations}
 
@@ -265,6 +264,7 @@ The maximum likelihood estimator (MLE) satisfies several important theoretical p
 In practice, these properties justify the widespread use of the MLE: it not only converges to the true parameter under mild assumptions, but also allows for straightforward reparametrisations and provides an estimator with minimal asymptotic variance.
 
 \section{A brief intro to information theory}
+\textbf{NB:} This section is based on Chapter 6 of \cite{murphy2022pml_intro}
 
 
 \paragraph{Motivation.} Let us consider a discrete RV $X\in \{1,2,\ldots, K\}$ with pmf $p_X$.  Observe that $-\log p_X(x)$ represents a measure of \emph{information} gained from obtaining the value $a$ as a sample of $X$. Now consider a communication channel $A \to B$, where $A$ is transmitting samples of $X$ to $B$. When $B$ received the samples, its \emph{average information} can be expressed as 
@@ -525,7 +525,7 @@ Though it sounds good, this is unfeasible in practice since $p$ is unknown. Howe
 \end{align}
 where the last approximation is due to Monte Carlo. This reveals that maximum likelihood is (asymptotically) equivalent to minimising the KL divergence between the model candidate and the (true) empirical distribution.
 
-\section*{Concluding remarks}
+\section{Concluding remarks}
 
 As we will throughout the module, when designing/chossing a PGM, we will be faced with the following scenarios. 
 
@@ -533,3 +533,39 @@ As we will throughout the module, when designing/chossing a PGM, we will be face
 	\item \textbf{Explicit-likelihood models:} These include classical statistical models such as Gaussians, exponentials, Bernoulli, $Xi^2$, log-normal, but also combinations or transformations that we construct as long as they have an explicit likelihood. These are Gaussian mixtures, piece-wise defined distributions, and amy pushforward model constructed through an invertible transformation so that its density can be calculated via the change of variable theorem. These last models are referred to as normalising flows, as they assume a Gaussian source measure. 
 	\item \textbf{Implicit models:} As the name suggests, these models are only implicitly defined via a data-generating mechanism, usually involving sampling. For instance, take a RV $Z\in\R^d\sim\cN(0,I_d)$ and construct $X=T_\theta(Z)$, where $T_\theta$ is collection of neural networks which are sequentially applied to $Z$ with the aim to replicate learnt dynamics that make $X$ \emph{flow} towards the desired distribution. Depending on the parametrisation, these models are known as score-based models, diffusion models, or flow matching.   
 \end{itemize}
+
+\subsection{Suggested exercises}
+
+
+
+\begin{enumerate}
+    \item \textbf{Generative vs discriminative modelling (theory).}  
+    Let $(X,Y)$ be random variables with joint distribution $p(x,y)$.  
+    \begin{enumerate}
+        \item Define what is meant by a \emph{generative model} and a \emph{discriminative model}.
+        \item Show how a generative model can be used to construct a classifier.
+        \item Discuss one advantage and one limitation of generative modelling relative to discriminative modelling.
+    \end{enumerate}
+    \item \textbf{Information-theoretic objectives  (theory).}  
+    Let $p$ be a data-generating distribution and $q_\theta$ a parametric model.
+    \begin{enumerate}
+        \item Define the entropy $H(p)$, cross-entropy $H(p,q_\theta)$, and KL divergence $\mathrm{KL}(p\|q_\theta)$.
+        \item Show that maximising the log-likelihood of data sampled from $p$ is equivalent to minimising $\mathrm{KL}(p\|q_\theta)$.
+        \item Explain why minimising $\mathrm{KL}(p\|q_\theta)$ and $\mathrm{KL}(q_\theta\|p)$ lead to qualitatively different approximations.
+    \end{enumerate}
+    \item \textbf{Maximum likelihood density estimation  (coursework).}  
+    You are given samples from a one-dimensional distribution.
+    \begin{enumerate}
+        \item Fit a Gaussian model by maximum likelihood.
+        \item Fit a mixture of Gaussians by maximum likelihood.
+        \item Empirically compare the learned models using log-likelihood and visual inspection.
+    \end{enumerate}
+
+    \item \textbf{Forward and reverse KL divergence   (coursework).}  
+    Consider approximating a multimodal target distribution using a unimodal Gaussian.
+    \begin{enumerate}
+        \item Numerically minimise $\mathrm{KL}(p\|q)$ and $\mathrm{KL}(q\|p)$.
+        \item Visualise the resulting solutions.
+        \item Explain the observed behaviour using the geometry of the KL divergence.
+    \end{enumerate}
+\end{enumerate}
