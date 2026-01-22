@@ -26,9 +26,152 @@ and is the central object of interest in Bayesian modeling.
     From now on, we will drop the explicit dependency of the parameter. From a Bayesian standpoint, we will consider that the latent variable $z$ encapsulates all (random) unknowns. This includes global variables such as parameters, and local variables such as cluster assignments. 
 \end{remark}
 
-\missing{Example: hierarchical Gaussian mixture}
-\missing{Example: Bayesian linear regression}
-\missing{Example: State space models}
+\begin{example}[Hierarchical Gaussian Mixture Model] To illustrate the role of both global and local latent
+variables in a PGM, we consider the following hierarchical GMM.
+
+Let \(x_n \in \mathbb R^d\), \(n=1,\dots,N\), denote the observed data.
+The latent variables are:
+\begin{itemize}
+  \item mixture weights \(\pi = (\pi_1,\dots,\pi_K)\),
+  \item cluster means \(\mu_1,\dots,\mu_K \in \mathbb R^d\),
+  \item cluster assignments \(z_n \in \{1,\dots,K\}\).
+\end{itemize}
+
+The generative process is:
+\begin{align*}
+\pi &\sim \mathrm{Dirichlet}(\alpha), \\
+\mu_k &\sim \mathcal N(m_0, \Sigma_0), \qquad k=1,\dots,K, \\
+z_n \mid \pi &\sim \mathrm{Categorical}(\pi), \qquad n=1,\dots,N, \\
+x_n \mid z_n, \{\mu_k\} &\sim \mathcal N(\mu_{z_n}, \Sigma).
+\end{align*}
+
+The resulting joint distribution factorizes as
+\[
+p(x,z,\mu,\pi)
+=
+p(\pi)
+\prod_{k=1}^K p(\mu_k)
+\prod_{n=1}^N p(z_n \mid \pi)\,p(x_n \mid z_n,\mu).
+\]
+
+Given observations \(x_{1:N}\), the inference task is to approximate the posterior
+\[
+p(z_{1:N}, \mu_{1:K}, \pi \mid x_{1:N}),
+\]
+which is analytically intractable due to the hierarchical coupling between the
+latent variables. In the same spirit, the marginal given by 
+\[
+p( x_{1:N}) = \int p(z_{1:N}, \mu_{1:K}, \pi, x_{1:N})\d z_{1:N} \d \mu_{1:K} \d\pi
+\]
+is also analytically intractable. Fig.~\ref{fig:hierarchical_GMM} shows an implementation of this model.
+\begin{figure}
+    \centering
+    \includegraphics[width=0.48\textwidth]{img/week3_hierarchical_GMM.pdf}
+    \caption{Samples from a hierarchical GMM: 2 dimensions, $N=400$ samples.}
+    \label{fig:hierarchical_GMM}
+\end{figure}
+
+
+\end{example}
+
+
+\begin{example}[Bayesian Linear Regression]
+Let \(\{(x_n,y_n)\}_{n=1}^N\) be observed data, where \(x_n \in \mathbb R^d\) are
+inputs and \(y_n \in \mathbb R\) are outputs. The latent variable is the regression weight vector \(w \in \mathbb R^d\), which is the parameter of the model. Notice that in this case the parameter is the only global latent variable and there are no local latent variables. 
+
+The generative model is defined by
+\[
+w \sim \mathcal N(m_0, \Sigma_0),
+\qquad
+y_n \mid w, x_n \sim \mathcal N(x_n^\top w, \sigma^2),
+\quad n=1,\dots,N.
+\]
+
+Denoting the input matrix \(X \in \mathbb R^{N\times d}\) with rows
+\(x_n^\top\), and the observation vector \(y=(y_1,\dots,y_N)^\top\), the likelihood can be written compactly as
+\[
+y \mid w, X \sim \mathcal N(Xw, \sigma^2 I_N).
+\]
+
+The joint distribution factorises as
+\[
+p(y,w\mid X)
+=
+p(w)\prod_{n=1}^N p(y_n\mid w,x_n).
+\]
+
+Given observations \((X,y)\), the posterior distribution over the latent weights is
+\[
+p(w\mid X,y) \propto p(w)\prod_{n=1}^N p(y_n\mid w,x_n),
+\]
+which admits the closed-form Gaussian solution
+\[
+p(w\mid X,y)=\mathcal N(m_N,\Sigma_N),
+\]
+with 
+\[
+\Sigma_N^{-1}=\Sigma_0^{-1}+\frac{1}{\sigma^2}X^\top X,
+\quad
+m_N=\Sigma_N\!\left(\Sigma_0^{-1}m_0+\frac{1}{\sigma^2}X^\top y\right).
+\]
+
+This model provides a baseline where exact Bayesian inference is tractable. Fig.~\ref{fig:bayesian_LM} shows samples from this model alongside the linear function corresponding to the latent weight. 
+
+\begin{figure}
+    \centering
+    \includegraphics[width=0.48\textwidth]{img/week3_bayesian_linear_reg.pdf}
+    \caption{Samples from a Bayesian linear model: 1 dimensions, $N=400$ samples.}
+    \label{fig:bayesian_LM}
+\end{figure}
+
+
+\end{example}
+
+
+\begin{example}[State space model]
+Let us now consider a latent variable model describing the evolution of a dynamical
+system observed through noisy measurements.
+
+Let \(z_t \in \mathbb R^m\), \(t=1,\dots,T\), denote the latent state at time \(t\),
+and let \(x_t \in \mathbb R^d\) denote the corresponding observation.
+The latent states and observations are linked through a transition model and an
+observation model.
+
+The generative process is defined as follows:
+\begin{align}
+z_1 &\sim p(z_1), \\[4pt]
+z_t &= f(z_{t-1}) + \epsilon_t,
+\qquad t=2,\dots,T, \\[4pt]
+x_t &= h(z_t) + \eta_t,
+\qquad t=1,\dots,T.
+\end{align}
+where \(f:\R^m \to \R^m\) is the (possibly nonlinear) state transition
+function, \(h:\R^m \to \R^d\) is the observation function, and  $\epsilon_t\sim p_\text{transition}$ and $\eta_t\sim p_\text{observation}$ are the process and observation noise sources respectively.
+
+The joint distribution over latent states and observations factorizes as
+\[
+p(x_{1:T}, z_{1:T})
+=
+p(z_1)
+\prod_{t=2}^T p(z_t \mid z_{t-1})
+\prod_{t=1}^T p(x_t \mid z_t).
+\]
+
+Given observations \(x_{1:T}\), the inference task is to approximate the posterior
+distribution
+\[
+p(z_{1:T} \mid x_{1:T}),
+\]
+which is analytically tractable only in the linear--Gaussian case
+(\(f\) and \(h\) linear), and otherwise requires approximate inference methods. Fig.~\ref{fig:SSM} shows a sample form this model.
+\begin{figure}
+    \centering
+    \includegraphics[width=0.7\textwidth]{img/week3_SSM.pdf}
+    \caption{Samples from a nonlinear state space model: 1 dimension, $N=400$ samples.}
+    \label{fig:SSM}
+\end{figure}
+\end{example}
+
 
 
 Approximate inference replaces the true posterior $p(z|x)$ with an approximation, say $q(z | x$) that is as close a possible to the true posterior, while at the same time allows for computing expectations and scalable computation. In this sense, there are two dominant paradigms for computing $q$. 
@@ -87,11 +230,30 @@ For this Markov chain to have the posterior $p(z \mid x)$ as its limiting distri
 \[
 \int p(z\mid x)\,T(z' \mid z)\,dz = p(z'\mid x).
 \]
-This means that if the chain starts at $z \sim p(z \mid x)$, then after one step the chain remains in the same distribution. 
+This means that if the chain starts at $z \sim p(z \mid x)$, then after one step the chain remains in the same distribution. Second, the chain should converge to its stationary distribution. 
 
-Second, the chain should converge to its stationary distribution. 
+A sufficient (but not necessary) condition for stationarity is the
+\emph{detailed balance} condition,
+\[
+p(z\mid x)\,T(z' \mid z)
+=
+p(z'\mid x)\,T(z \mid z'),
+\]
+which implies that \(p(z\mid x)\) is a stationary distribution of the Markov
+chain. The detailed balance condition states that, at equilibrium, the probability flow from state \(z\) to state \(z'\) is exactly balanced by the flow from \(z'\) to
+\(z\). As a result, there is no net movement of probability mass, and the target
+distribution remains invariant under the Markov chain dynamics.
 
-\missing{A necessary condition for this is detailed balance. Also refer to irreducibility and aperiodicity}
+
+To ensure convergence to the stationary distribution from an arbitrary initial
+state, additional regularity conditions are required. In particular, the Markov
+chain should be \emph{irreducible}, meaning that it is possible to reach any
+state from any other state with positive probability, and \emph{aperiodic},
+meaning that the chain does not get trapped in deterministic cycles.
+
+Under these conditions, the distribution of \(z^{(t)}\) converges to
+\(p(z\mid x)\) as \(t \to \infty\), regardless of the initial state.
+
 
 \paragraph{Metropolis Hastings.} A direct construction of the transition kernel that fulfills the convergence conditions above can be achieved in two steps. First, by sampling from an arbitrary proposal distribution \(q(z' \mid z)\), and then correcting the sample for the discrepancy between \(q\) and the target distribution $p(z \mid x)$.
 
