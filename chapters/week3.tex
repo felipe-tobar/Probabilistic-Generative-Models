@@ -438,7 +438,6 @@ Fig.~\ref{fig:MH_GMM} shows an implementation of Gibbs and  Metropolis Hastings 
     q^*(z) = \argmin_{q\in\cQ} \KL{q(z)}{p(z \mid x)}.
     \label{eq:VI_problem}
 \end{equation}
-
 \begin{remark}
     The more general or comprehensive the family $\cQ$, the more difficult it is to find the optimal $q^*(z)$.
 \end{remark}
@@ -451,7 +450,7 @@ Observe that solving eq.~\eqref{eq:VI_problem} is unfeasible, since it requires 
 -
 \int q(z)\log p(z,x) \dz 
 +
-\underbrace{\int q(z)\log p(x) \dz}_{\log p(x)} 
+\underbrace{\int q(z)\log p(x) \dz}_{\log p(x)},
 \]
 the dependence of the objective on $\log p(x)$ is via a constant which can be ignored when optimising wrt $q(z)$. Therefore, the optimisation problem in eq.~\eqref{eq:VI_problem} is equivalent to maximising the evidence lower bound (ELBO) given by
 \begin{equation}
