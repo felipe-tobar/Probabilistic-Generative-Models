@@ -26,7 +26,9 @@ and is the central object of interest in Bayesian modeling.
     From now on, we will drop the explicit dependency of the parameter. From a Bayesian standpoint, we will consider that the latent variable $z$ encapsulates all (random) unknowns. This includes global variables such as parameters, and local variables such as cluster assignments. 
 \end{remark}
 
-\begin{example}[Hierarchical Gaussian Mixture Model] To illustrate the role of both global and local latent
+\begin{example}[Hierarchical Gaussian Mixture Model]
+\label{ex:hierarchical_GMM}
+To illustrate the role of both global and local latent
 variables in a PGM, we consider the following hierarchical GMM.
 
 Let \(x_n \in \mathbb R^d\), \(n=1,\dots,N\), denote the observed data.
@@ -502,3 +504,140 @@ Furthermore, the gap between these quantities is precisely the discrepancy, in t
     q(z) = \prod_{i=1}^mq_i(z_i).
 \end{equation}
 With the introduction of the MF family, the task of finding an $m$-dimensional distribution is replaced by finding $m$ 1-dimensional ones. 
+
+\begin{remark}
+    The coordinate-wise densities have not been fixed to an explicit expression. Such expressions can be chosen for each coordinate based on its features, e.g., whether they are continuous or discrete. 
+\end{remark}
+
+\begin{example}
+    A choice of MF family for the hierarchical Gaussian mixture in Example \ref{ex:hierarchical_GMM} is
+    \[
+    q(\pi,\mu_{1:K}, z_{1:N}) = \mathrm{Dirichlet}(\pi; \alpha) \prod_{k=1}^{K} \cN(\mu_k; m_k, \Sigma_k) \prod_{n=1}^{N} \mathrm{Categorical}(z_n; \phi_n)
+    \]
+    where $\{\alpha, m_{1:K}, \Sigma_{1:K}, \phi_{1:N}\}$ are the variational parameters.
+\end{example}
+
+\begin{example}
+    We will see that the MF family captures marginals but no dependencies between variables (in particular, correlations). Let us consider $z = [z_1,z_2]^\top\in\R^2$, and the target 
+    \[
+    p(z \mid x)
+    =
+    \cN\!\left(
+    z \,\middle|\,
+    \begin{bmatrix}
+    \mu_1 \\
+    \mu_2
+    \end{bmatrix},
+    \begin{bmatrix}
+    \sigma_{11} & \sigma_{12} \\
+    \sigma_{21} & \sigma_{22}
+    \end{bmatrix}
+    \right).
+    \]
+    The optimal MF family for this target is\footnote{We will not prove this, as it requires results from variational calculus.}  $q(z) = q_1(z_1)q2(z_2)$. Denoting 
+    \[
+    q_1(z_1) = \cN(z_1 \mid m_1, s_1), \quad  q_2(z_2) = \cN(z_2 \mid m_2, s_2), 
+    \]
+    let us find the optimal variational parameters $\theta = \{m_1,s_1,m_2,s_2\}$. That is
+    \[
+    \theta^* = \argmin \KL{q_1(z_1)q_2(z_2)}{p(z_1,z_2 \mid x)}
+    \]
+
+    Since both \(q\) and \(p\) are Gaussian, the KL divergence admits a closed-form
+    expression. Writing \(q(z)=\mathcal N(z\mid m, S)\) with
+    \[
+    m =
+    \begin{bmatrix}
+    m_1\\
+    m_2
+    \end{bmatrix},
+    \qquad
+    S =
+    \begin{bmatrix}
+    s_1 & 0\\
+    0 & s_2
+    \end{bmatrix},
+    \]
+    we have
+    \begin{align*}
+    \KL{q}{p}
+    &=
+    \frac12\Big(
+    \log\frac{\det\Sigma}{\det S}
+    -2
+    +\tr(\Sigma^{-1}S)
+    +(m-\mu)^\top\Sigma^{-1}(m-\mu)
+    \Big),
+    \end{align*}
+    where \(\mu=(\mu_1,\mu_2)^\top\) and \(\Sigma=(\sigma_{ij})_{i,j=1}^2\).
+
+    Taking derivatives with respect to \(m_1\) yields
+    \[
+    \frac{\partial}{\partial m_1}\KL{q}{p}
+    =
+    \big(\Sigma^{-1}(m-\mu)\big)_1,
+    \]
+    which vanishes if and only if \(m_1=\mu_1\). By symmetry, \(m_2=\mu_2\).
+
+    Next, differentiating with respect to \(s_1\) gives
+    \[
+    \frac{\partial}{\partial s_1}\KL{q}{p}
+    =
+    \frac12\Big(
+    (\Sigma^{-1})_{11}
+    -
+    \frac{1}{s_1}
+    \Big),
+    \]
+    so the optimum satisfies
+    \[
+    s_1 = \frac{1}{(\Sigma^{-1})_{11}}.
+    \]
+    An analogous calculation yields
+    \(
+    s_2 = \frac{1}{(\Sigma^{-1})_{22}}.
+    \)
+
+    Therefore, the optimal mean-field approximation matches the marginal means but
+    not the marginal variances:
+    \[
+    q_1(z_1)=\mathcal N\!\left(z_1\mid \mu_1,\;(\Sigma^{-1})_{11}^{-1}\right),
+    \qquad
+    q_2(z_2)=\mathcal N\!\left(z_2\mid \mu_2,\;(\Sigma^{-1})_{22}^{-1}\right).
+    \]
+
+    To conclude, let us explore what the recovered variance means. Since we can calculate the precision matrix explicitly for this case, we have 
+    \[
+    s_1 = \frac{1}{(\Sigma^{-1})_{11}} = \frac{\sigma_{22}}{\sigma_{11}\sigma_{22} - \sigma_{12^2}} = \sigma_{11}(1-\rho^2),
+    \]
+    where $\rho = \sigma_{12}/\sqrt{\sigma_{11}\sigma_{22}}$ is the correlation coefficient. The interpretation is as follows. 
+
+    \begin{itemize}
+    \item When \(z_1\) and \(z_2\) are uncorrelated (\(\rho = 0\)), the mean-field
+    variance matches the true marginal variance, that is \(s_1 = \sigma_{11}\).
+    \item When \(|\rho| > 0\), the mean-field variance is strictly smaller than the
+    marginal variance, reflecting the fact that dependencies between variables are
+    ignored by the mean-field assumption.
+    \item As \(|\rho| \to 1\), we have \(s_1 \to 0\), indicating that strong correlation
+    makes \(z_1\) almost deterministically determined by \(z_2\), a phenomenon that
+    cannot be captured by a mean-field approximation.
+    \end{itemize}
+
+    More generally, this illustrates that mean-field variational inference
+    systematically underestimates posterior uncertainty in the presence of strong
+    correlations. Fig.\ref{fig:MF_Gaussian} shows this approximation for three different cases. 
+
+    \begin{figure}
+    \centering
+    \includegraphics[width=0.3\textwidth]{img/week3_MF_Gaussian_0.pdf}
+    \hfill
+    \includegraphics[width=0.3\textwidth]{img/week3_MF_Gaussian_05.pdf}
+    \hfill
+    \includegraphics[width=0.3\textwidth]{img/week3_MF_Gaussian_95.pdf}
+    \caption{Mean-field variational approximation of a 2D Gaussian: uncorrelated  and correlated cases.}
+    \label{fig:MF_Gaussian}
+\end{figure}
+\end{example}
+
+
+\paragraph{Coordiante ascent variational inference (CAVI). }
