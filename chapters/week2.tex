@@ -116,9 +116,9 @@ Eqs.~\eqref{eq:GMM_LL_soln1}-\eqref{eq:GMM_LL_soln3} do not provide a direct clo
 
 Let us now leave the GMM aside. In more general, perhaps abstract, terms, the goal of the  EM algorithm is to find maximum likelihood solutions for latent variable models (LVMs) by breaking down the the optimisation problem into a functional approximation of the likelihood, and then the (simpler) optimisation of such approximation. 
 
-Recall our notation involving an observed variable $x$ and a latent variable $z$. In general LVMs, the log-likelihood can be expressed as 
+Recall our notation involving an observed variable $x$ and a latent variable $z$. In general LVMs, the likelihood can be expressed as 
 \begin{equation}
-    \log p(x|\theta) = \int_\cZ p(x|\theta,z)p(z|\theta)\dz. \label{eq:LVM_LL}
+    p(x|\theta) = \int_\cZ p(x|\theta,z)p(z|\theta)\dz. \label{eq:LVM_LL}
 \end{equation}
 \textbf{NB:} We treat both the discrete and continuous equivalently.
 
