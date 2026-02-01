@@ -1,18 +1,20 @@
 \chapter{Bayesian Nonparametrics}
 
-\textbf{NB:} This is based on \cite[Ch.~1-2]{Orbanz2014BayesianNP}.
+\textbf{NB:} This is based on \cite[Ch.~1-2]{Orbanz2014BayesianNP} and \cite[Ch.~2]{rasmussen2006gpml}.
 
-Recall that given a collection of of observations $x_1,\ldots,x_n$, the main objective of the learning problem is to identify the data-generating mechanism. In classical statistics, this is achieved by defining the set of possible mechanisms as follows.  
+\section{Motivation}
+
+Recall that, given a collection of observations $x_1,\ldots,x_n$, the main objective of the learning problem is to identify the data-generating mechanism. In classical statistics, the first step to achieve this is by defining the set of possible data generators as follows.  
 \begin{definition}[Statistical model]
-Let $(\cX, \cA)$ be a measurable sample space.  
-A statistical model is a family of probability measures
+Let $\cX$ be a the (observation) sample space.  
+A statistical model is a family of probability distributions
 \[
 \cP = \{ P_\theta : \theta \in \Theta \}
 \]
-defined on $(\cX, \cA)$, where $\Theta$ is a parameter space and $\theta$ is an unknown parameter indexing the data-generating distribution.
+defined on $\cX$, where $\Theta$ is a parameter space and $\theta$ is an unknown parameter indexing the data-generating distribution.
 \end{definition}
 
-Then, the observations $x_1,\ldots,x_n$ are regarded as a realisation of a random variable with a distribution in the statistical model. This way, learning reduces to the inverse problem related to identifying the distribution in $\cP$ that generated the observations. The canonical procedure to choose this model is maximum likelihood. 
+Then, by considering the observations $x_1,\ldots,x_n$ as a realisation of a random variable with a distribution in the statistical model, learning reduces to the inverse problem related to identifying the distribution in $\cP$ that generated the observations. The canonical procedure to choose this model is maximum likelihood. 
 
 
 \begin{example}[Density estimation: Gaussian parametric model vs.\ empirical measure]
@@ -20,8 +22,8 @@ Let $x_1,\dots,x_N$ be i.i.d.\ observations taking values in $\cX=\R$.
 
 Consider the statistical model given by 
 \[
-\mathcal{P}_{\mathrm{Gauss}}
-= \bigl\{ P_{\mu,\sigma^2} : (\mu,\sigma^2)\in \mathbb{R}\times(0,\infty)\bigr\},
+\cP_{\mathrm{Gauss}}
+= \bigl\{ P_{\mu,\sigma^2} : (\mu,\sigma^2)\in\R\times(0,\infty)\bigr\},
 \qquad
 p(x\mid \mu,\sigma^2)=\frac{1}{\sqrt{2\pi\sigma^2}}
 \exp\!\Bigl(-\frac{(x-\mu)^2}{2\sigma^2}\Bigr).
@@ -30,7 +32,7 @@ The optimal (maximum likelihood) parameters for this statistical model are
 \[
 \hat\mu=\frac{1}{n}\sum_{n=1}^N x_n,
 \qquad
-\widehat{\sigma^2}=\frac{1}{N}\sum_{n=1}^n (n_i-\hat\mu)^2.
+\widehat{\sigma^2}=\frac{1}{N}\sum_{n=1}^N (n_i-\hat\mu)^2.
 \]
 Alternatively, we can consider an assumption-free estimator of the data-generating distribution given by the empirical measure
 \begin{equation}
@@ -54,9 +56,9 @@ Note that for the Gaussian statistical model, the parameter space is clearly def
     We will call the statistical model $\cP$ \textbf{parametric} if the parameter space is finite, and \textbf{nonparametric} is parameter space is infinite.  
  \end{remark}
 
-\paragraph{The role of the parameter.} We can consider learning the parameter as a form of compression, where the information in the, say $N$, observations is summarised in the parameter $\theta\in\Theta$---see Fig.~\ref{fig:data_model}. The parameter representation then will then capture the relevant patterns in the data and retain them for general purposes such as performing predictions, discriminative tasks such as classification, and even storage. Critically, when the parameter space is finite (and the dimensionality is lower than the number of datapoints), this compression is \emph{lossy}, meaning that some information in the data is inevitably lost when determining the parameter, and this the complete observations cannot be fully recovered  (or explained) from the parameters alone. Additionally, if the number of parameters is fixed, an increasing amount of observations will not be able to extract information monotonically form the data, as there is only enough information that a $m$-dimensional vector can convey
+\paragraph{The role of the parameter.} We can consider learning the parameter as a form of compression, where the information in the, say $N$, observations is summarised in the parameter $\theta\in\Theta$---see Fig.~\ref{fig:data_model}. The parametric representation will then capture the relevant patterns in the data and retain them for subsequent tasks such as performing predictions, discriminative tasks such as classification, and even storage. Critically, when the parameter space is finite (and the dimensionality is lower than the number of datapoints), this compression is \emph{lossy}, meaning that some information in the data is inevitably lost when determining the parameter, and thus the complete observations cannot be fully recovered  (or explained) from the parameters alone. Additionally, and from an intuitive perspective, for a fixed number of parameters, an increasing amount of observations will not provide a monotonically-increasing amount of information, as there is only enough capacity in a $m$-dimensional parametric model.
 
-On the contrary, a non-parametric model (i.e., a statistical model with an  infinite-dimensional parameter space) can represent a form of lossless data representation. This means that no information is lost when training the model. In such case, the distinction between the parameter space and the model space is usually blurred, as the parameter becomes the model itself. Though this sounds like a great way to learn models as its provide infinitely flexible models that do not \emph{saturate} and keep learning as we through more data to them, their implementation in practice requires careful considerations to deal with computational complexity. 
+On the contrary, a non-parametric model (i.e., a statistical model with an  infinite-dimensional parameter space) can represent a form of lossless data representation. This means that no information is lost when training the model. In such case, the distinction between the parameter space and the model space is usually blurred, as the parameter becomes the model itself. Though this sounds like a great way to learn models as its provide infinitely-flexible models that do not \emph{saturate} and keep learning as we feed more data to them, their implementation in practice requires careful considerations to deal with computational complexity. 
 
 
 \begin{figure}
@@ -69,9 +71,9 @@ On the contrary, a non-parametric model (i.e., a statistical model with an  infi
 \paragraph{Bayesian nonparametric models.} Since in Bayesian ML we consider the parameter to be a random variable, we need to define a (prior) distribution over the parameter space $\Theta$.  This 
 
 \begin{definition}[Bayesian statistical model]
-A Bayesian statistical model describes how data are generated and what is known about the unknown parameters before observing the data.
+A Bayesian statistical model describes how data are generated, together with a way to encapsulate prior knowledge of the parameters before observing the data.
 
-It consists of:
+Formally, it consists of:
 \begin{enumerate}
   \item a \emph{likelihood} $p(x \mid \theta)$, which specifies how the data $x$ are distributed for a given parameter value $\theta$, and
   \item a \emph{prior distribution} $\pi(\theta)$, which represents our beliefs about plausible values of $\theta$ before seeing any data.
@@ -88,10 +90,11 @@ Therefore, under the Bayesian paradigm, learning the model no longer refers to f
 \begin{equation}
     p(\theta|x_1,\ldots,x_N).
 \end{equation}
-As a consequence, the parameter remains uncertain given a finite number of observations.
+As a consequence, the parameter remains uncertain given a finite number of observations, but this uncertainty is reduced as we see the observations.
 
-This week we will focus on the models that are given by a infinite-dimensional parameter space, where the main challenge will need to define priors in such spaces.  Recall that a distribution on an infinite-dimensional space, ro equivalently, a collection of random variables indexed by such space is a \emph{stochastic process} with paths in $\Theta$. In particular, we will focus on two such models: The Dirichlet process, which is a prior over probability distributions, and the Gaussian process which is a prior over functions. 
+This week we will focus on Bayesian models given by a infinite-dimensional parameter space, where the main challenge will need to define priors in such spaces.  Recall that a distribution on an infinite-dimensional space, or equivalently, a collection of random variables indexed by such space is a \emph{stochastic process} with paths in $\Theta$. In particular, we will focus on two such models: The Dirichlet process, which is a prior over probability distributions, and the Gaussian process which is a prior over functions. 
 
+\warning{The Dirichlet process is not part of the 2025/26 version of this course. However, a brief (draft) presentation is kept in the lecture notes for completeness; note that this draft is not complete and might have some notational incosisntencies. Interested reader are recommended to see \cite{Orbanz2014BayesianNP} for a clear presentation of the Dirichlet process in ML.}
 \section{The Dirichlet process}
 
 \paragraph{Bayesian mixture model} We are very familiar at this stage with the hierarchical GMM, let us consider a different view of this model. Denoting the assignment variable as $z\in\N$, the distribution the observation $x$ generated by a the $k$-th cluster can be expressed as 
@@ -256,30 +259,462 @@ This result shows that Bayesian updating under the Dirichlet process corresponds
 \section{The Gaussian process}
 
 
-Recall the parametric model underpinning Bayesian linear regression. Consider the model
+Recall the parametric linear regression model given by
 \[
-y = \phi(x)^\top w + \varepsilon,
+y = \phi(x)^\top \w + \varepsilon,
 \qquad
-\varepsilon \sim \mathcal{N}(0,\sigma^2),
+\varepsilon \sim \cN(0,\sigma^2),
 \]
-where $\phi(x)\in\R^m$ is a fixed feature map and $w\in\R^m$ is a vector of unknown weights. Furthermore, let us consider a standard Gaussian prior on the weights,
+where $x\in\R^d$, $\phi: \R^d \to\R^m$ is a fixed feature map, and $\w\in\R^m$ is the unknown parameter. 
+
+Let us consider a set of observation inputs $x_1,\ldots,x_N$, and denote the vector representation for the input, features and corresponding outputs: 
 \[
-w \sim \mathcal{N}(0,I).
+\X=\begin{bmatrix}
+x_1^\top\\
+x_2^\top\\
+\vdots\\
+x_N^\top
+\end{bmatrix} \in\R^{N\times d},
+\qquad
+\Phi \coloneqq
+\begin{bmatrix}
+\phi(x_1)^\top\\
+\phi(x_2)^\top\\
+\vdots\\
+\phi(x_N)^\top
+\end{bmatrix}\in\mathbb{R}^{N\times m}
+\qquad
+\y=\begin{bmatrix}
+y_1\\
+y_2\\
+\vdots\\
+y_N
+\end{bmatrix} \in\R^{N}.
 \]
 
-For any finite set of inputs $x_1,\ldots,x_n$, the vector of latent function values
-\[
-f = (f(x_1),\ldots,f(x_n)), \qquad f(x)=\phi(x)^\top w,
-\]
-is jointly Gaussian:
-\[
-f \sim \mathcal{N}(0, \Phi \Phi^\top),
-\]
-where $\Phi = [\phi(x_1),\ldots,\phi(x_n)]^\top$.
-Thus, Bayesian linear regression induces a Gaussian distribution over function values.
+Given the Gaussian driving noise $\varepsilon$, the observations $\y$ are distributed according to 
+\begin{equation}
+    p(\y\mid \X,\w) = \cN(\Phi\w,\sigma^2I_N).
+    \label{eq:Bayesian_linear_model}
+\end{equation}
 
-\begin{itemize}
-    \item Explore the rank of this covariance
-    \item what happens if $m$ grows?
-    \item cane we take $m\to\infty$?
-\end{itemize}
+
+\begin{remark}
+    For a fixed map $\phi$, the parameter space of this statistical model is $\{(w,\sigma) \in\R^m\times\R_+\}$.
+\end{remark}
+
+
+From a Bayesian standpoint, let us consider a standard Gaussian prior on the weights,
+\begin{equation}
+\w \sim \mathcal{N}(0,\Sigma_\w),
+ \label{eq:Bayesian_linear_model_prior}
+\end{equation}
+with $\Sigma_\w$ a positive definite matrix.
+
+This is a standard latent-variable formulation as the models we have seen earlier. In fact, the marginal law of $\y$, given by 
+\begin{equation}
+    p(y \mid \X) = \int  p(y \mid \X, \w)p(\w)\d\w,
+    \label{eq:marginal_implicit}
+\end{equation}
+can be calculated analytically: eqs.~\eqref{eq:Bayesian_linear_model} and  \eqref{eq:Bayesian_linear_model_prior} into  \eqref{eq:marginal_implicit} give
+
+\[
+p(\y\mid \X)
+= \mathcal N\!\bigl(\y \,\big|\, 0,\; \Phi\Sigma_{\w}\Phi^\top+\sigma^2 I_N\bigr).
+\]
+
+
+\begin{remark}
+    Due to the linear-Gaussian formulation of this model, we say that the (latent) parameter can be marginalised out (or integrated out) analytically.
+\end{remark}
+
+
+Furthermore, by conjugacy, the posterior distribution of the weights is Gaussian,
+\[
+p(\w\mid \y,\X)=\mathcal N(\w\mid \mu,\Sigma),
+\]
+with
+\[
+\Sigma=\Bigl(\Sigma_{\w}^{-1}+\frac{1}{\sigma^2}\Phi^\top\Phi\Bigr)^{-1},
+\qquad
+\mu=\Sigma\Bigl(\frac{1}{\sigma^2}\Phi^\top \y\Bigr).
+\]
+
+
+\begin{remark}
+
+Observe that the posterior mean of $\w$ satisfies
+\[
+\mu \defeq
+\mathbb E[\w\mid \y,\X]= \argmin_{\w}
+\left\{
+\frac{1}{2\sigma^2}\|\y-\Phi\w\|_2^2
++\frac{1}{2}\w^\top \Sigma_{\w}^{-1}\w
+\right\},
+\]
+meaning that \(\mathbb E[\w\mid \y,\X]\) coincides with the ridge regression estimator (aka $L_2$-regularised least squares). In  particular, when using an uninformative prior $p(\w)$, the solution reduces to the ordinary least squares estimator.
+\end{remark}
+
+
+
+
+
+\begin{example}
+    Consider a \emph{localised} version of this model where $x\in\R$, and the features $\phi$ are Gaussian bumps, i.e., $\phi_i = \exp\left(-\gamma(x-c_i)^2\right)$, with $\gamma$ and $c_i$ fixed hyperparameters.  Fig.~\ref{fig:Bayes_linear} shows four realisations of the model to illustrate its flexibility. 
+
+    \begin{figure}[t]
+    \centering
+    \includegraphics[width=0.9\textwidth]{img/week4_Bayesian_linear_model.pdf}
+    \caption{4 realisations for the Bayesian linear model using Gaussian features.}
+    \label{fig:Bayes_linear}
+\end{figure}
+
+\end{example}
+
+Observe that the posterior predictive distribution for the latent function value 
+\(f_\ast=\phi(x_\ast)^\top\w\), 
+at a new test input $x_\ast$ satisfies,
+\[
+p(f_\ast \mid x_\ast, \X, \y)
+= \int p(f_\ast \mid x_\ast, \w)\, p(\w \mid \X, \y)\,\mathrm d\w .
+\]
+To calculate this expression, recall that
+\[
+f_\ast \mid x_\ast, \w = \phi(x_\ast)^\top \w,
+\qquad
+\w \mid \X, \y \sim \mathcal N(\mu,\Sigma),
+\]
+which allows to calculate the integral in closed form, yielding a Gaussian predictive distribution,
+\[
+p(f_\ast \mid x_\ast, \X, \y)
+= \mathcal N\!\bigl(f_\ast \,\big|\,
+  m_\ast,\;
+v_\ast
+\bigr),
+\]
+with the mean and variance given by 
+\begin{align}
+    m_\ast 
+&= \phi(x_\ast)^\top \mu
+=\phi_\ast^\top \Sigma_{\w}\Phi^\top K^{-1}\y,\\
+v_\ast
+&= \phi(x_\ast)^\top \Sigma \,\phi(x_\ast)
+=\phi_\ast^\top \Sigma_{\w}\phi_\ast
+\;-\;
+\phi_\ast^\top \Sigma_{\w}\Phi^\top K^{-1}\Phi\Sigma_{\w}\phi_\ast,
+\end{align}
+where we have denoted \(\phi_\ast \coloneqq \phi(x_\ast)\in\mathbb{R}^m\) and
+\[
+K \;\coloneqq\; \Phi \Sigma_{\w}\Phi^\top + \sigma^2 I_N \in\R^{N\times N}.
+\]
+
+
+\section{Construction of the GP}
+
+\begin{definition}[Gaussian process]
+A \emph{Gaussian process} (GP) is a stochastic process
+\(\{f(x) : x \in \mathcal X\}\) such that for any finite set of inputs
+\(x_1,\ldots,x_N \in \mathcal X\), the random vector
+\[
+\bigl[f(x_1),\ldots,f(x_N)\bigr]\in\R^N
+\]
+is multivariate Gaussian. A GP is fully specified by a mean function
+\(m:\mathcal X\to\mathbb R\) and a covariance (kernel) function
+\(k:\mathcal X\times\mathcal X\to\mathbb R\), and denoted by 
+\[
+f \sim \GP{m(\cdot)}{k(\cdot,\cdot)}.
+\]
+This means that for any \(x_1,\ldots,x_N\),
+\[
+\bigl[f(x_1),\ldots,f(x_N)\bigr]
+\sim
+\mathcal N\!\left(
+\bigl[m(x_1),\ldots,m(x_N)\bigr],
+\;
+\bigl[k(x_i,x_j)\bigr]_{i,j=1}^N
+\right).
+\]    
+\end{definition}
+
+The model above, defined by \(f(x)\coloneqq \phi(x)^\top \w\) with the  prior \(\w\sim\mathcal N(0,\Sigma_{\w})\), is a GP with
+\[
+m(x)=0,
+\qquad
+k(x,x')=\phi(x)^\top \Sigma_{\w}\,\phi(x').
+\]
+
+\begin{remark}[Zero-mean GPs]
+    We will consider zero-mean GPs only, since the feature map $\phi$ can be extended with a constant coordinate, that is $\tilde\phi^\top = [c, \phi^\top], c\in\R$, which produces a constant term carrying the first coordinate of the parameter $w_1c$. Therefore, this term can be considered as a trainable mean.
+\end{remark}
+Furthermore, considering the observation noise \(\varepsilon\sim\mathcal N(0,\sigma^2)\), we have that $y$ is also a GP:
+\[
+y(\cdot)\sim \GP{0}{k(x,x')+\sigma^2\mathbf{1}\{x=x'\}}.
+\]
+
+For an input-output observation dataset \(\{\X,\y\}\), define \(K= \Phi\Sigma_{\w}\Phi^\top \in\mathbb R^{N\times N}\), i.e.
+\[
+K_{ij}=k(x_i,x_j)=\phi(x_i)^\top \Sigma_{\w}\,\phi(x_j),
+\qquad i,j\in\{1,\ldots,N\}.
+\]
+Then the (GP) likelihood admits the explicit density
+\begin{equation}
+    p(\y\mid \X)
+=
+\frac{1}{(2\pi)^{N/2}\,|K+\sigma^2 I_N|^{1/2}}
+\exp\!\left(
+-\frac{1}{2}\,\y^\top (K+\sigma^2 I_N)^{-1}\y
+\right).    
+\label{eq:GP_likelihood}
+\end{equation}
+
+\begin{remark}[Inducing similarties through $\phi$]
+The covariance of the GP reveals a \emph{similarity-based structure} controlled by inner products between the chosen feature map \(\phi\) (rotated by \(\Sigma_{\w}\)). Therefore, different notions of similarity can be induced by appropriate choices of \(\phi\). 
+For instance, taking \(\Sigma_{\w}=I\) and \(\phi(x)=x/\|x\|\) yields a covariance that is maximised when the inputs are colinear. 
+This motivates the use of high-dimensional (and possibly trainable) feature maps \(\phi\) to extract representations that are relevant for the task.
+\end{remark}
+
+\begin{remark}[Cubic computational cost]
+Training and inference under the GP model, i.e. evaluating the marginal likelihood and making predictions, requires inversion of the \(N\times N\) covariance matrix \(K+\sigma^2 I_N\). 
+As a consequence, the computational complexity scales as \(\mathcal O(N^3)\) and depends on the number of data points \(N\), but not explicitly on the feature dimension \(m\).
+\end{remark}
+
+\begin{remark}[Evidence for the kernel trick]
+Although the model may be expressed in terms of feature maps (which we would like to be high-dimensional) all interactions between data points occur exclusively through inner products
+\(\phi(x_i)^\top \Sigma_{\w}\phi(x_j)\).
+Hence, individual features never appear alone but only through their pairwise similarities. This observation calls for exploiting the kernel trick to represent the model.
+\end{remark}
+
+\begin{remark}[Avoiding degeneracy in GPs]
+Considering \(m\) basis functions (the dimension of $\phi$) and \(N>m\) observations, the covariance matrix \(K=\Phi\Sigma_{\w}\Phi^\top\) is rank-deficient.
+In this case, the Gaussian likelihood is degenerate in the noiseless case, and the GP does not have a density.
+While the addition of observation noise \(\sigma^2 I_N\) ensures invertibility, a well-posed GP that admits a large number of observations \(N\) without degeneracy requires feature maps \(\phi\) of (effectively) infinite dimension.
+This motivates infinite-dimensional feature representations.
+\end{remark}
+
+To construct a GP with an infinite-dimensional feature map and use it in practice, the explicit treatment of such a map should be bypassed altogether. This is feasible, since the likelihood of the GP, defined in eq.~\eqref{eq:GP_likelihood}, only depends on the map via the covariance entries $k(x_i,x_j)=\phi(x_i)^\top \Sigma_{\w}\,\phi(x_j)$. 
+
+\begin{remark}[The kernel trick]
+Specifying a GP directly by choosing a kernel function \(k\), rather than an explicit feature map \(\phi\), requires  choosing \(k\) to be positive definite.
+By \emph{Mercer’s theorem}, any continuous, symmetric, positive definite kernel admits a (possibly infinite-dimensional) feature representation
+\[
+k(x,x')=\langle \phi(x),\phi(x')\rangle_{\mathcal H},
+\]
+for some Hilbert space \(\mathcal H\).
+Thus, working directly with positive-definite kernels implicitly defines a corresponding feature map without ever constructing it explicitly.
+\end{remark}
+
+
+\section{Implementing a GP}
+
+\paragraph{Choosing the kernel.}
+
+
+\begin{remark}[Kernel as a similarity measure]
+    Recall the the kernel defines the inner product between the feature maps, as a consequence, its choice will be made on the basis of assessing similarity.
+\end{remark}
+
+
+The usual choice for a GP kernel is the \textit{Squared Exponential} (SE) kernel given by 
+\begin{equation}\label{eq:gp_kernel_se}
+	k_{SE}(x, x') = \sigma^2 \exp\left( - \frac{\left( x- x'\right)^2}{2\ell^2} \right).
+\end{equation}
+
+\begin{remark}
+    If the kernel is a function of the difference of its arguments, that is, $k(x, x')=k(x-x')$, we will say that that the kernel is stationary. It is worth noting that stationary kernels make the covariance between points invariant under translations in the input space. An important notion is that a kernel can be viewed as a measure of similarity between points, and in the case of stationary kernels, the closer two points are, the more similar they are.
+\end{remark}
+
+The \emph{Rational Quadratic} (RQ) kernel given by 
+ \begin{equation}\label{eq:gp_kernel_rq}
+	k_{RQ}(x, x') = \sigma^2 \left(1 + \frac{\left( x- x'\right)^2}{2\alpha\ell^2 } \right)^{-\alpha}
+\end{equation}
+can be interpreted as the sum of infinite SE kernels with different \textit{lenghtscales}, where $\alpha$ controls the variablity of this scale parameter.
+
+The periodic kernel given by 
+\begin{equation}\label{eq:gp_kernel_p}
+	K_{P}(x, x') = \sigma^2 \exp\left(-\frac{2\sin^2\left(\pi |x- x'| / p \right)}{\ell^2 } \right)
+\end{equation}
+allows for modelling periodic funcitons, where the parameter $p$ controls the period of the functions. An extension of this kernel is the locally-periodic kernel 
+\begin{equation}\label{eq:gp_kernel_lp}
+	K_{LP}(x, x') = \sigma^2  \exp\left(-\frac{\left(x- x' \right)^2}{2\ell^2 } \right) \exp\left(-\frac{2\sin^2\left(\pi |x- x'| / p \right)}{\ell^2 } \right)
+\end{equation}
+given by a periodic kernel mutiplied by an SE kernel, which allows for local periodic behaviour 
+
+\begin{remark}
+When designing a Gaussian process and choosing a covariance function, one is not restricted to a fixed set of known kernels.
+Kernels can be combined to construct richer covariance structures that better capture the properties of the underlying process.
+In particular, the sum and the product of valid kernels are themselves valid kernels, and the exponential of a kernel,
+\(\exp(k_1(\cdot,\cdot))\) with \(k_1\) a valid kernel, also defines a valid covariance function.
+These closure properties allow for flexible and expressive kernel design.
+\end{remark}
+
+\begin{figure}[t]
+    \centering
+    \includegraphics[width=0.9\textwidth]{img/week4_GP_kernel_and_samples.pdf}
+    \caption{Covariance kernels (left) and GP samples (right). From top to bottom: Square exponential, rational quadratic, periodic, and locally-periodic kernels.}
+    \label{fig:GP_samples}
+\end{figure}
+
+
+Fig.~\ref{fig:GP_samples} shows these four kernels and samples drawn from them.
+
+\paragraph{Sampling from a Gaussian process.}
+
+Given that a sample from a GP is an infinite-dimensional function, sampling form it might seem impossible at first. However, recall that a GP defines a joint Gaussian distribution over the function values \emph{at any finite collection of input points}. See Fig.~\ref{fig:gp_graphical_model_full} for a graphical model representation.
+
+
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[node distance=1.6cm]
+
+    
+% Inputs (constants)
+\node[const] (x) {$x_n$};
+
+% Latent function values
+\node[latent, right=of x] (f) {$f_n$};
+
+% Observations
+\node[obs, below=of f] (y) {$y_n$};
+
+% Hyperparameters
+\node[latent, right=of f] (theta) {$\theta$};
+\node[latent, right=of y] (sig) {$\sigma^2$};
+
+% Edges
+\edge{x}{f}
+\edge{theta}{f}
+\edge{f}{y}
+\edge{sig}{y}
+
+% Plate
+\plate{plateN}{(x)(f)(y)}{$n=1,\ldots,N$}
+
+
+\end{tikzpicture}
+\caption{Graphical model of a GP model over a finite collection of inputs.
+The latent function \(f\) is drawn from a GP prior and evaluated at inputs \(x_n\), producing latent values \(f_n\), from which noisy observations \(y_n\) are generated.}
+\label{fig:gp_graphical_model_full}
+\end{figure}
+
+
+Therefore, to sample a function from a GP, one first selects a finite set of input locations, computes the corresponding mean vector and covariance matrix, and then draws a sample from the resulting multivariate normal distribution. 
+
+
+Each such draw corresponds to one possible realisation of the random function consistent with the specified mean and covariance. See Algorithm \ref{alg:gp_sampling}, which uses the Cholesky decomposition..
+
+\begin{algorithm}[H]
+\caption{Sampling from a Gaussian Process}
+\label{alg:gp_sampling}
+\begin{algorithmic}[1]
+\Require Mean function \(m(\cdot)\), kernel \(k(\cdot,\cdot)\), inputs \(x_1,\ldots,x_N\)
+\Ensure Sample \(\f = [f(x_1),\ldots,f(x_N)]^\top\)
+
+\State Compute \(\m = [m(x_1),\ldots,m(x_N)]^\top\)
+\State Compute \(K\in\mathbb R^{N\times N}\) with \(K_{ij}=k(x_i,x_j)\)
+\State Draw \(\z \sim \mathcal N(0,I_N)\)
+\State Compute \(L\) such that \(K=LL^\top\) (e.g.\ Cholesky)
+\State Return \(\f = \m + L\z\)
+
+\end{algorithmic}
+\end{algorithm}
+
+Then \(\f = [f(x_1),\ldots,f(x_N)]^\top\) is a sample from the Gaussian process evaluated at the chosen inputs.
+
+\paragraph{Training a GP}
+
+Training a Gaussian process amounts to learning the kernel hyperparameters
+\(\theta\) (and the noise variance \(\sigma^2\)) from data.
+Thanks to the marginalisation property of Gaussian processes, the (infinite-dimensional) latent
+function $f$ can be integrated out analytically, yielding the
+marginal likelihood
+\[
+p(\y \mid \X,\theta,\sigma^2)
+=
+\mathcal N\!\bigl(\y \,\big|\, 0,\; K_\theta+\sigma^2 I_N\bigr),
+\]
+where \((K_\theta)_{ij}=k_\theta(x_i,x_j)\).
+Training is then formulated as the optimisation problem
+\[
+\max_{\theta,\sigma^2}\;
+\log p(\y \mid \X,\theta,\sigma^2)
+=
+-\frac{1}{2}\y^\top (K_\theta+\sigma^2 I_N)^{-1}\y
+-\frac{1}{2}\log|K_\theta+\sigma^2 I_N|
+-\frac{N}{2}\log(2\pi),
+\]
+which balances data fit and model complexity and can be solved using
+gradient-based methods.
+
+
+\begin{algorithm}[H]
+\caption{Training a Gaussian Process via Marginal Likelihood}
+\label{alg:gp_training}
+\begin{algorithmic}[1]
+\Require Data \(\{(x_n,y_n)\}_{n=1}^N\), kernel family \(k_\theta(\cdot,\cdot)\), initial \(\theta,\sigma^2\)
+\Ensure Trained hyperparameters \(\theta^\star,\sigma^{2\star}\)
+
+\State Form \(\X=[x_1,\ldots,x_N]\) and \(\y=[y_1,\ldots,y_N]^\top\)
+\Repeat
+    \State Compute the kernel matrix \(K_\theta \in \R^{N\times N}\) with \((K_\theta)_{ij}=k_\theta(x_i,x_j)\)
+    \State Set \(C \gets K_\theta + \sigma^2 I_N\)
+    \State Evaluate the (log) marginal likelihood
+    \[
+    \ell(\theta,\sigma^2) \gets \log p(\y\mid \X,\theta,\sigma^2)
+    = -\frac{1}{2}\y^\top C^{-1}\y - \frac{1}{2}\log|C| - \frac{N}{2}\log(2\pi)
+    \]
+    \State Compute gradients \(\nabla_\theta \ell(\theta,\sigma^2)\) and \(\partial_{\sigma^2}\ell(\theta,\sigma^2)\)
+    \State Update \(\theta,\sigma^2\) using a gradient-based optimiser (e.g.\ gradient ascent)
+\Until{convergence}
+\State \Return \(\theta^\star \gets \theta,\ \sigma^{2\star} \gets \sigma^2\)
+
+\end{algorithmic}
+\end{algorithm}
+
+
+\paragraph{Posterior computation} After training, posterior inference in Gaussian process regression is also made tractable by the marginalisation property. Conditioning the joint Gaussian distribution of the training set \(\X, \y\) and new inputs \(x_\ast\) yields a closed-form posterior predictive distribution.
+
+Specifically, for a test input \(x_\ast\), the posterior over the latent function value \(f_\ast\) is Gaussian,
+\[
+p(f_\ast \mid x_\ast,\X,\y)
+= \mathcal N\!\bigl(f_\ast \,\big|\, m_\ast,\; v_\ast \bigr),
+\]
+with mean and variance given by
+\[
+m_\ast = k_\ast^\top (K+\sigma^2 I_N)^{-1}\y,
+\qquad
+v_\ast = k(x_\ast,x_\ast) - k_\ast^\top (K+\sigma^2 I_N)^{-1}k_\ast,
+\]
+where \(k_\ast = [k(x_1,x_\ast),\ldots,k(x_N,x_\ast)]^\top\).
+Thus, the posterior combines prior uncertainty encoded by the kernel with information from the data, and both prediction and uncertainty quantification reduce to linear algebra operations involving the kernel matrix.
+
+
+\begin{algorithm}[H]
+\caption{Posterior Prediction in Gaussian Process Regression}
+\label{alg:gp_posterior}
+\begin{algorithmic}[1]
+\Require Training data \(\{(x_n,y_n)\}_{n=1}^N\), kernel \(k(\cdot,\cdot)\), noise variance \(\sigma^2\), test inputs \(x^\ast_1,\ldots,x^\ast_M\)
+\Ensure Posterior predictive mean \(\m_\ast\in\mathbb R^M\) and covariance \(\Sigma_\ast\in\mathbb R^{M\times M}\) for \(\f_\ast=[f(x^\ast_1),\ldots,f(x^\ast_M)]^\top\)
+
+\State Form \(\y=[y_1,\ldots,y_N]^\top\)
+\State Compute \(K\in\mathbb R^{N\times N}\) with \(K_{ij}=k(x_i,x_j)\)
+\State Compute \(K_\ast\in\mathbb R^{N\times M}\) with \((K_\ast)_{i\ell}=k(x_i,x^\ast_\ell)\)
+\State Compute \(K_{\ast\ast}\in\mathbb R^{M\times M}\) with \((K_{\ast\ast})_{\ell r}=k(x^\ast_\ell,x^\ast_r)\)
+\State Set \(C \gets K+\sigma^2 I_N\) and compute its Cholesky factorisation \(C=LL^\top\)
+\State Solve \(L\mathbf{v}=\y\) and \(L^\top \alpha=\mathbf{v}\) \hfill (so \(\alpha=C^{-1}\y\))
+\State Compute posterior mean \(\m_\ast \gets K_\ast^\top \alpha\)
+\State Solve \(LW=K_\ast\) for \(W\) \hfill (so \(W=L^{-1}K_\ast\))
+\State Compute posterior covariance \(\Sigma_\ast \gets K_{\ast\ast}-W^\top W\)
+\State \Return \(\m_\ast,\Sigma_\ast\)
+\end{algorithmic}
+\end{algorithm}
+
+\paragraph{Plotting a GP.} To maximise visual understanding, GPs are plotted in the following manner: The mean is plotted as a thick solid line, its ($\pm$ 2 std.~dev.) credible interval is represented by a shaded area, samples are plotted as thin lines, and---if present---observations are plotted as disconnected dots. . Fig.~\ref{fig:GP_full_example} provides plots for a complete example of the training and inference stage of a GP, including: samples from the prior, observed data, and the GP posterior with untrained and trained hyperparameters. The code for these figures is available in \url{https://github.com/felipe-tobar/GP-lite} 
+\begin{figure}[t]
+    \centering
+    \includegraphics[width=0.9\textwidth]{img/week4_gp_prior.pdf}
+    \includegraphics[width=0.9\textwidth]{img/week4_GP_samples.pdf}
+    \includegraphics[width=0.9\textwidth]{img/week4_gp_posterior_untrained.pdf}
+    \includegraphics[width=0.9\textwidth]{img/week4_gp_posterior_trained.pdf}
+    \caption{Plots fro the full GP pipeline. From top to botom: prior, data, posterior predictive (untrained) and posterior predictive (trained).}
+    \label{fig:GP_full_example}
+\end{figure}

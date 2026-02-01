@@ -14,6 +14,10 @@
 
 
 
+
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+
 \usepackage{pgfplots}
 \pgfplotsset{compat=1.6}
 \usepackage{lmodern}
@@ -99,9 +103,30 @@
     fontcolor=red!80!black,
 }
 
+\mdfdefinestyle{WarningFrame}{%
+    skipabove=\topskip,
+    skipbelow=\topskip,
+    topline=false,
+    roundcorner=10pt,
+    frametitlefont={\color{blue!70!black}\normalfont\bfseries},
+    frametitlerule=true,
+    frametitlebackgroundcolor=red!10,
+    backgroundcolor=red!10,
+    linecolor=red!10,
+    fontcolor=red!80!black,
+}
+
+
+
 \newcommand{\missing}[1]{%
   \begin{mdframed}[style=TodoFrame,nobreak=true,align=center,userdefinedwidth=0.75\textwidth]
     \textbf{To do:} #1
+  \end{mdframed}
+}
+
+\newcommand{\warning}[1]{%
+  \begin{mdframed}[style=WarningFrame,nobreak=true,align=center,userdefinedwidth=0.75\textwidth]
+    \textbf{Warning:} #1
   \end{mdframed}
 }
 
@@ -199,6 +224,8 @@
 \newcommand{\Dchi}[2]{\chi^2\left(#1\middle\|#2\right)}
 \newcommand{\one}[1]{\mathbb{1}_{#1}}
 \newcommand{\defeq}{\mathrel{\stackrel{\mathrm{def}}{=}}}
+\newcommand{\GP}[2]{\mathcal{GP}\left(#1 , #2\right)}
+
 
 
 
@@ -229,6 +256,11 @@
 \def\thetahat{{\hat\theta}}
 \def\xb{{ \bar{x}}}
 \def\x{{ \mathbf{x}}}
+\def\f{{ \mathbf{f}}}
+\def\m{{ \mathbf{m}}}
+\def\X{{ \mathbf{X}}}
+\def\w{{ \mathbf{w}}}
+\def\y{{ \mathbf{y}}}
 \def\z{{ \mathbf{z}}}
 \def\gh{{ \hat{g}}}
 \def\ghX{{ \hat{g}(X)}}
