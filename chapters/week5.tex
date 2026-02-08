@@ -1,23 +1,31 @@
 \chapter{Optimal Transport}
 
-\textbf{NB:} This is based on \cite[Ch.~1-2]{peyre_cuturi_2019}.
+\textbf{NB:} This is based on \cite[Ch.~1-2]{peyre_cuturi_2019} and \cite{thorpe_2018_intro_ot}.
 
 \section{Motivation}
 
-
+In many applications within generative modelling, we need to compare probability distributions in a way that respects the geometry of the sample space. Classical discrepancies such as $\ell_p$ distances between histograms or $f$-divergences (e.g.\ KL, JS) are often
+referred to as \emph{vertical distances}, as they compare distributions in a pointwise fashion, ignoring the notion of distance between locations in the sample space.
 
 \begin{itemize}
-    \item Drawbacks of vertical distances (nonoverlapping support)
-    \item Sense of proximity / convergence
-    \item How to lift the base distance
+    \item \textbf{Drawbacks of vertical distances.}
+    Vertical distances become uninformative when the supports of the distributions do not overlap: two distributions with disjoint supports can be arbitrarily far apart or even incomparable, regardless of how close their supports are in space.
+
+    \item \textbf{Sense of proximity and convergence.}
+    When learning generative models, we expect distributions supported on nearby regions to be considered close. For instance, if $x_n \to x$ in $\mathbb{R}^d$, the Dirac measures $\delta_{x_n}$ should converge to $\delta_x$. This notion of convergence is not captured by most classical divergences.
+
+    \item \textbf{Lifting the base distance.}
+    Optimal transport provides a principled way to lift a ground distance
+    $d(\cdot,\cdot)$ on the sample space to a distance between probability
+    distributions by explicitly accounting for the cost of transporting mass across space. This leads to geometrically meaningful distances on spaces of measures, known as Wasserstein distances.
 \end{itemize}
 
 \section{The Monge problem}
 
-In this part we will consider the assignment problem, that is how to allocate a set of items from a set of source locations to a set of target locations. 
+Let us consider the assignment problem, that is, how to allocate a group of items from a set of source locations to a set of target locations. 
 
 \begin{example}[The vineyard problem]
-    Consider a wine production company, where grapes produced from different vineyards need to be transported to processing plants. An optimal assignment in this case must consider the distance between each vineyard and processing plant, as well as their  production and processing capacities respectively, to achieve the minimum transport cost. See Fig.~\ref{fig:wine_assignment} for an illustration.
+    Consider a wine production company, where grapes produced from different vineyards must be transported to processing plants. An optimal assignment in this case must consider the distance between each vineyard and processing plant, as well as their  production and processing capacities respectively, to achieve the minimum transport cost. See Fig.~\ref{fig:wine_assignment} for an illustration.
 \begin{figure}
     \centering
     \includegraphics[width=0.5\textwidth]{img/week5_wine_assignment.pdf}
@@ -26,12 +34,12 @@ In this part we will consider the assignment problem, that is how to allocate a 
 \end{figure}
 \end{example}
 
-We will consider both discrete and continuous distributions on the items to be assigned (or \emph{transported}), we recall them as follows. 
+We will consider both discrete and continuous distributions on the items to be assigned (or \emph{transported}); we recall them as follows. 
 
 \begin{definition}[Discrete measure with finite support]
-Let $\mathcal X$ be a set. A measure $\mu$ is \emph{discrete with finite support}
+Let $\cX$ be a set. A measure $\mu$ is \emph{discrete with finite support}
 if there exist points $x_1,\dots,x_n \in \mathcal X$ and weights
-$w_1,\dots,w_n \ge 0$ such that, for any subset $A \subseteq \mathcal X$,
+$w_1,\dots,w_n \ge 0$ such that, for any subset $A \subseteq \cX$,
 \[
 \mu(A) = \sum_{i=1}^n w_i\,\mathbf{1}_{\{x_i \in A\}}.
 \]
@@ -61,15 +69,15 @@ Let us consider two discrete distributions $\mu$ and $\nu$, given by
 \begin{equation}
     \mu = \sum_{i=1}^{N}\mu_i\delta_{x_i},\quad \text{and}\quad \nu = \sum_{j=1}^{M} \nu_j\delta_{y_j}.
 \end{equation} 
-The discrete Monge formulation finds a map, denoted $T$, that associates each source point $x_i$ with a single point target $y_j$ in order to allocate the mass from $\mu$ to $\nu$. Note that more than one source point can be allocated to the same target, meaning that the map is surjective yet not necessarily injective. The map $T: \{x_1,x_2,\ldots,x_N\}\to \{y_1,y_2,\ldots,y_M\}$, must verify
+The discrete Monge formulation finds a map, denoted $T$, that associates each source point $x_i$ with a single point target $y_j$ in order to allocate the mass from $\mu$ to $\nu$. Note that more than one source point can be allocated to the same target, meaning that the map is surjective (onto the set with $\nu_j>0$) yet not necessarily injective. The map $T: \{x_1,x_2,\ldots,x_N\}\to \{y_1,y_2,\ldots,y_M\}$, must verify
 \begin{equation}\label{eq:Monge_PF}
  \nu_j = \sum_{i:T(x_i)=y_j}\mu_i,\quad \forall j=1,\ldots,M,
 \end{equation}
 meaning that $\nu$ is the \emph{push-forward measure} of $\mu$ through $T$. 
 
-Among the possible maps that fulfil eq.~\eqref{eq:Monge_PF}, Monge's formulation should minimise a given transportation cost, defined over the source-target pairs. Denoting the transport cost by $c:\{x_1,x_2,\ldots,x_N\}\times \{y_1,y_2,\ldots,y_M\} \to \R_+$, the optimal map is
+Among the possible maps fulfilling eq.~\eqref{eq:Monge_PF}, Monge's formulation minimises a given transportation cost defined over the source-target pairs. Denoting the transport cost by $c:\{x_1,x_2,\ldots,x_N\}\times \{y_1,y_2,\ldots,y_M\} \to \R_+$, the optimal map is
 \begin{equation}
-    T^* = \argmin_{T_\#\mu=\nu}\, \sum_{i=1}^N c(x_i,T(x_i))   
+    T^* = \argmin_{T_\#\mu=\nu}\, \sum_{i=1}^N c(x_i,T(x_i)).   
 \end{equation}
 
 \begin{example}[The assignment problem]
@@ -87,10 +95,10 @@ Among the possible maps that fulfil eq.~\eqref{eq:Monge_PF}, Monge's formulation
 \end{figure}
 \end{remark}
 
-The Monge problem can also be formulated for general (continuous and/or discrete) measures. Let us consider two measures with densities $\mu$ and $\nu$ supported on spaces $\cX$ and $\cY$ respectively, and a cost function $c:\cX\times\cY\to\R_+$.  In this case, the Monge map is given by 
+The Monge problem can also be formulated for general (continuous and/or discrete) measures. Let us consider two measures $\mu$ and $\nu$ supported on spaces $\cX$ and $\cY$ respectively, and a cost function $c:\cX\times\cY\to\R_+$.  In this case, the Monge map is given by 
 
 \begin{equation}
-    T^* = \argmin_{T_\#\mu=\nu}\, \int_{\cX} c(x,T(x))\mu(x)\dx   
+    T^* = \argmin_{T_\#\mu=\nu}\, \int_{\cX} c(x,T(x))\d\mu(x).   
 \end{equation}
 
 See Fig.~\ref{fig:monge_diagram} for an illustration.\footnote{Infinite thanks to Elsa Cazelles (IRIT, CNRS) for kindly sharing these beautiful \texttt{tikz} figures.}
@@ -115,37 +123,37 @@ See Fig.~\ref{fig:monge_diagram} for an illustration.\footnote{Infinite thanks t
     \label{fig:monge_diagram}
 \end{figure}
 
-We will be particularly interested when the measures involved are probability measures associated to random variables $X$ and $Y$, this is because we want to rely on the theory of mass transport to construct generative models. However, let us see that in the standard formulation of the Monge map, this is very limiting since we cannot deal with general cases beyond the histograms with the same number of atoms and uniform weights. In particular, modelling the association between the supports of $\mu$ and $\nu$ by the map $T$, does not allow for mass splitting. 
+We will be particularly interested when the measures involved are probability measures associated to random variables $X$ and $Y$, this is because we want to rely on the theory of mass transport to construct generative models. However, note that in Monge's standard formulation this is very limiting, since we cannot deal with general cases beyond the histograms with the same number of atoms and uniform weights. In particular, modelling the association between the supports of $\mu$ and $\nu$ by the map $T$, does not allow for mass splitting. 
 
 
 \section{Kantorovich relaxation}
 
 To allow for the mass of $\mu$ at a given location to be split and then transported to different locations to match $\nu$, Kantorovich's formulation relaxes the deterministic nature of Monge's transport, considering a probabilistic transport instead.
 
-We now return to the discrete measure setting with measures $\mu$ and $\nu$. Rather than considering a transport map, we will then consider a transport plan (or coupling) $P\in\R^{N\times M}$, where $P_{i,j}$ describes the amount of mass that goes from $x_i$ to $y_j$. Just as we saw that the set of admissible maps are those that fulfil the pushforward condition, the set of admissible plans are 
+We now return to the discrete measure setting with measures $\mu$ and $\nu$. Rather than assuming the existence of a transport map, we will consider a transport plan (or coupling) $P\in\R^{N\times M}$, where $P_{i,j}$ describes the amount of mass that goes from $x_i$ to $y_j$. The condition of the admissible maps fulfilling the pushforward condition, turns into the following condition for the set of admissible plans: 
 \begin{equation}
     \Pi(\mu,\nu) \defeq \{ P\in\R_+^{N\times M}, \text{s.t.,} P\one_M = \mu\quad \text{and}\quad P^\top\one_N = \nu  \},
 \end{equation}
-where $\one_M\in\R^M$ denotes a column vector on ones of dimension $M$. 
-Note that, unlike the map formulation, the transport plan is always symmetric, i.e., $P\in\Pi(\mu,\nu) \iff P^\top\in\Pi(\nu, \mu)$
+where $\one_M\in\R^M$ denotes a column vector of ones of dimension $M$. 
+Note that, unlike the map formulation, the set of couplings always symmetric, i.e., $P\in\Pi(\mu,\nu) \iff P^\top\in\Pi(\nu, \mu)$.
 
 \begin{remark}
     The set $\Pi(\mu,\nu)$ is defined by $N+M$ equality constraints and this is a convex polytope, that is, the convex hull of a finite set of matrices. The vertices of this polytope will be of particular interest.  
 \end{remark}
 
-Then considering a cost matrix $C_{ij} = c(x_i,y_j)$, Kantorovich's optimal transport cost can be defined as 
+Then, considering a cost matrix $C_{ij} = c(x_i,y_j)$, Kantorovich's optimal transport cost between discrete measures can be defined as 
 \begin{equation}\label{eq:kantorovich_discrete}
     L(\mu,\nu) \defeq \min_{P\in\Pi(\mu,\nu)}
- \langle C,P\rangle = \sum_{i,j=1}^{N,M} C_{ij}P_{ij}
+ \langle C,P\rangle = \sum_{i=1}^{N}\sum_{j=1}^{M} C_{ij}P_{ij}.
 \end{equation}
 
 \begin{example}[Vineyards and wineries]
-To develop an intuition of Kantorovich's problem suppose an operator manages \(n\) vineyards and \(m\) wine processing plants. Each vineyard, indexed by \(i\), produces \(\mu_i\) units of grapes
-during the harvest season. These grapes must be transported in their entirety to the processing plants, where each plant \(j\) requires exactly \(\nu_j\) units of grapes in order to operate at full capacity.
+To develop an intuition of Kantorovich's problem suppose an operator manages $N$ vineyards and $M$ wine processing plants. Each vineyard, indexed by $i$, produces $\mu_i$ units of grapes
+during the harvest season. These grapes must be transported in their entirety to the processing plants, where each plant $j$ requires exactly $\nu_j$ units of grapes in order to operate at full capacity.
 
-To transport grapes from vineyard \(i\) to processing plant \(j\), the operator relies on a logistics provider that charges a cost \(C_{i,j}\) per unit of grapes transported along that route. The pricing scheme is linear and uniform: shipping \(a\) units of grapes from vineyard \(i\) to plant \(j\) incurs a total cost of \(a\,C_{i,j}\).
+To transport grapes from vineyard $i$ to processing plant $j$, the operator relies on a logistics provider that charges a cost $C_{i,j}$ per unit of grapes transported along that route. The pricing scheme is linear and uniform: shipping $a$ units of grapes from vineyard $i$ to plant \(j\) incurs a total cost of $a\,C_{i,j}$.
 
-The goal of the operator is to determine how much grape mass should be sent from each vineyard to each processing plant so as to satisfy all supply and demand constraints while minimizing the total transportation cost.
+The goal of the operator is to determine how much grape mass should be sent from each vineyard to each processing plant so as to satisfy all supply and demand constraints while minimising the total transportation cost.
 
 See Fig.~\ref{fig:Kantorovich_diagram} for an illustration. 
 \end{example}
@@ -156,35 +164,28 @@ See Fig.~\ref{fig:Kantorovich_diagram} for an illustration.
     \vspace{2em}
 
     \includegraphics[width=0.9\textwidth]{img/week5_kantorovich.pdf}
-    \caption{Illustration of Kantorovich's formulation: mass splitting (top) and transport plan with cost matrix.}
+    \caption{Illustration of Kantorovich's formulation: mass splitting (top) and transport plan with cost matrix (bottom).}
     \label{fig:Kantorovich_diagram}
 \end{figure}
 
 \begin{remark}
-    Observe that $\Pi(\mu,\nu)$ always has at least one element, given by $\mu \nu^\top$, known as the independent coupling. Therefore, Kantorovich's formulation always has a solution.
+    Observe that $\Pi(\mu,\nu)$ always has at least one element, given by $\mu \otimes \nu$, known as the independent coupling. Therefore, Kantorovich's formulation always has a solution.
 \end{remark}
 
 \vspace{2cm}
 
-\begin{remark}[Equivalence between Monge and Kantorovich.]
-Whenever the Monge problem admits a solution, the Kantorovich formulation is
-equivalent to it. More precisely, if there exists an optimal transport map
-\(T:\cX\to\cY\) pushing \(\mu\) onto \(\nu\), then the associated transport plan
-\(\pi_T \in \Pi(\mu,\nu)\), defined by
+\begin{remark}[Equivalence between Monge and Kantorovich]
+Whenever the Monge problem admits a solution, the Kantorovich formulation is equivalent to it. More precisely, if there exists an optimal transport map \(T:\cX\to\cY\) pushing \(\mu\) onto \(\nu\), then the associated transport plan \(\pi_T \in \Pi(\mu,\nu)\), defined by
 \[
 \pi_T(x,y) = \mu(x)\,\mathbf{1}_{\{y=T(x)\}},
 \]
-is an optimal solution of the Kantorovich problem and both formulations attain
-the same optimal cost. In this case, the optimal Kantorovich plan is supported on
-the graph of the map \(T\).
+is an optimal solution of the Kantorovich problem and both formulations attain the same optimal cost. In this case, the optimal Kantorovich plan is supported on the graph of the map \(T\).
 
-Conversely, when no optimal transport map exists, the Monge problem is ill-posed,
-while Kantorovich’s relaxation remains well-defined and admits at least one
-solution, possibly involving mass splitting.
+Conversely, when no optimal transport map exists, the Monge problem is ill-posed, while Kantorovich’s relaxation remains well-defined and admits at least one solution, possibly involving mass splitting.
 \end{remark}
 
-The Kantorovich problem naturally extends to general (continuous and/or discrete)
-measures. Let \(\mu\) and \(\nu\) be two measures supported on spaces \(\cX\) and
+To extend Kantorovich's formulation to general (continuous and/or discrete)
+measures, let \(\mu\) and \(\nu\) be two measures supported on spaces \(\cX\) and
 \(\cY\), respectively, and let \(c:\cX\times\cY\to\R_+\) be a cost function. A
 \emph{transport plan} is now a measure \(\pi\) on the product space
 \(\cX\times\cY\) whose marginals coincide with \(\mu\) and \(\nu\), that is,
@@ -210,7 +211,7 @@ Let $\mu$ and $\nu$ be probability measures on $\mathbb{R}^d$ with finite second
 moments. Assume that $\mu$ admits a density with respect to the Lebesgue measure,
 and consider the quadratic cost
 \[
-c(x,y) = \|x-y\|^2.
+c(x,y) = \frac{1}{2}\|x-y\|^2.
 \]
 Then the Kantorovich problem between $\mu$ and $\nu$ admits a unique optimal
 solution. Moreover, this optimal transport plan is induced by a map
@@ -240,12 +241,8 @@ on the graph of $T$.
 
 \section{Calculating OT}
 
-\paragraph{Particular case 1: Gaussian measures.}
-A particularly important special case arises when considering optimal transport
-with the quadratic cost \(c(x,y)=\|x-y\|_2^2\) between two Gaussian measures.
-Let \(\mu=\mathcal{N}(m_\mu,\Sigma_\mu)\) and \(\nu=\mathcal{N}(m_\nu,\Sigma_\nu)\)
-be Gaussian distributions on \(\mathbb{R}^d\). Since Gaussian measures admit
-densities, the Monge problem admits a unique solution. In this case, the optimal
+\paragraph{Particular case: Gaussian measures.}
+Let \(\mu=\mathcal{N}(m_\mu,\Sigma_\mu)\) and \(\nu=\mathcal{N}(m_\nu,\Sigma_\nu)\) be Gaussian distributions on \(\mathbb{R}^d\) with positive definite covariance matrices, and consider the quadratic cost \(c(x,y)=\|x-y\|_2^2\). Since these measures admit densities, the Monge problem admits a unique solution. In this case, the optimal
 transport map has a closed-form expression and is affine, given by
 \[
 T(x) = m_\nu + A(x-m_\mu),
@@ -275,12 +272,8 @@ map reduces to a simple rescaling and translation,
 admits a closed-form expression in terms of the means and variances.
 
 
-\paragraph{Particular case 2: 1-dimensional measures.}
-A remarkable feature of optimal transport is that, in one dimension, the problem
-admits a closed-form solution. Let $\mu$ and $\nu$ be probability measures on
-$\mathbb{R}$. The optimal transport map is given by the \emph{monotone
-rearrangement}, which matches equal quantiles of the two distributions. This
-construction is illustrated in Fig.~\ref{fig:1d_data}.
+\paragraph{Particular case: 1-dimensional measures.} Following from Brenier theorem, a relevant feature of optimal transport is that, in one dimension, the problem admits a closed-form solution. Let $\mu$ and $\nu$ be probability measures on $\R$, e.g., as illustrated in Fig.~\ref{fig:1d_data}, and assume the $L_p$ distance as the associated ground cost. The optimal transport map is given by the \emph{monotone
+rearrangement}, which matches equal quantiles of the two distributions. 
 
 \begin{figure}[h]
     \centering
@@ -295,10 +288,9 @@ $F_\mu^{-}:[0,1]\to\mathbb{R}$ its inverse (quantile function), defined as
 \[
 F_\mu^{-}(t) = \inf\{x\in\mathbb{R} : F_\mu(x)\ge t\}, \qquad t\in[0,1].
 \]
-Then, for any $p\ge 1$, the $p$-Wasserstein distance between $\mu$ and $\nu$ admits
-the explicit expression
+Then, for any $p\ge 1$, the optimal transport cost between $\mu$ and $\nu$ admits the explicit expression
 \[
-W_p^p(\mu,\nu)
+\text{OT}^p(\mu,\nu)
 =
 \int_0^1 \bigl(F_\mu^{-}(t)-F_\nu^{-}(t)\bigr)^p\,dt
 =
@@ -311,8 +303,7 @@ between quantile functions.
 \begin{figure}[h]
     \centering
     \includegraphics[scale=0.5]{img/week5_1dim_data_quant.pdf}
-    \caption{Quantile functions of the two distributions. The Wasserstein
-    distance corresponds to the $L^p$ distance between them.}
+    \caption{Quantile functions of the two distributions. The optimal transport cost corresponds to the $L^p$ distance between them.}
     \label{fig:1d_quantiles}
 \end{figure}
 
@@ -331,8 +322,7 @@ Fig.~\ref{fig:1d_discrete}.
 
 
 \paragraph{General case through linear programming.}
-
-Note that Kantorovich's problem is defined by the linear programme in eqs.~\eqref{eq:kantorovich_discrete} or \eqref{eq:kantorovich_continuous}. Recall that the feasible set of the discrete optimal transport problem is the convex and compact transport polytope $\Pi(\mu,\nu)$, defined by the linear
+Kantorovich's problem is defined by the linear programme in eqs.~\eqref{eq:kantorovich_discrete} or \eqref{eq:kantorovich_continuous}. Recall that the feasible set of the discrete optimal transport problem is the convex and compact transport polytope $\Pi(\mu,\nu)$, defined by the linear
 equality and inequality constraints. Since the objective function
 $\langle C,P\rangle$ is linear in $P$, the optimal plan is found at an extreme point (vertex) of the polytope. As a consequence, OT plans (in the discrete setting) are typically sparse. See Fig.~\ref{fig:polyotope1} for an illustration.
 
@@ -343,7 +333,7 @@ $\langle C,P\rangle$ is linear in $P$, the optimal plan is found at an extreme p
     \label{fig:polyotope1}
 \end{figure}
 
-\begin{remark}[Simplex method]
+\begin{remark}[Intuition into the simplex method]
 The simplex method is a classical algorithm for solving linear programs, usually used to solve Kantorovich's OT formulation. It operates by moving along the edges of the feasible polytope from one vertex to another, at each step decreasing the value of the objective function, until no adjacent vertex yields further improvement. Since the optimum of a linear program is attained at a vertex of the feasible set, the simplex method
 terminates at an optimal solution after visiting only a (typically small) subset of all vertices.
 \end{remark}
@@ -355,7 +345,7 @@ terminates at an optimal solution after visiting only a (typically small) subset
 \begin{algorithmic}[1]
 \Require Weights $\mu\in\mathbb{R}^n_+$, $\nu\in\mathbb{R}^m_+$ with $\sum_i \mu_i=\sum_j \nu_j$; cost matrix $C\in\mathbb{R}^{n\times m}$
 \Ensure Optimal transport plan $P^\star\in\mathbb{R}^{n\times m}_+$ and cost $OT(\mu,\nu)$
-\State \textbf{Define decision variables:} $P\in\mathbb{R}^{n\times m}$
+\State \textbf{Define optimisation variables:} $P\in\mathbb{R}^{n\times m}$
 \State \textbf{Form constraints (transport polytope):}
 \[
 P \ge 0,\qquad P\mathbf{1}_m=\mu,\qquad P^\top \mathbf{1}_n=\nu
@@ -369,14 +359,14 @@ P \ge 0,\qquad P\mathbf{1}_m=\mu,\qquad P^\top \mathbf{1}_n=\nu
 \end{algorithmic}
 \end{algorithm}
 
-Algorithm \ref{alg:kantorovich} presents te procedure to solve the OT problem. For illustration, Figs.~\ref{fig:kantorovich_example_discrete} and \ref{fig:kantorovich_example_continuous} show implementations of this algorithm. 
+Algorithm \ref{alg:kantorovich} presents the procedure to solve the OT problem. For illustration, Figs.~\ref{fig:kantorovich_example_discrete} and \ref{fig:kantorovich_example_continuous} show implementations of this algorithm. 
 
 
 \begin{figure}
     \centering
     \includegraphics[height=0.4\textwidth]{img/week5_kantorovich_discrete_histogram.pdf}
     \includegraphics[height=0.4\textwidth]{img/week5_kantorovich_discrete_solution.pdf}
-    \caption{Computation of optimal plan (discrete): Source and target discrete distributions (left) and the optimal plan (right) for a given cost matrix. Observe how the plan is sparse, meaning that the mass at each source location is split into only a few of target locations.}
+    \caption{Computation of optimal plan (discrete): Source and target discrete distributions (left) and the optimal plan (right) for a given cost matrix. Observe how the plan is sparse, meaning that the mass at each source location is split into only a few target locations.}
     \label{fig:kantorovich_example_discrete}
 \end{figure}
 
@@ -385,15 +375,21 @@ Algorithm \ref{alg:kantorovich} presents te procedure to solve the OT problem. F
     \centering
     \includegraphics[width=0.6\textwidth]{img/week5_kantorovich_continuous_density.pdf}
     \includegraphics[width=0.3\textwidth]{img/week5_kantorovich_continuous_solution.pdf}
-    \caption{Computation of optimal plan between Gaussian mixtures using the $L_2$ cost (discrete, but more dense): Source and target discrete distributions (left) and the optimal plan (right) for a given cost matrix. Observe how the plan seems extremely sparse with the plans almost completely supported on the plot of a function. Though this a discrete example, since mixture of Gaussians are absolutely continuous, the OT cost is unique and equal to Monge's solution (Brenier thm), which can seen from the plot. Furthermore, also in line with Brenier thm,  note that the transport is monotonic, meaning transported masses \emph{do not cross paths}.}    
+    \caption{Computation of optimal plan between Gaussian mixtures using the $L_2$ cost (discrete, but more dense): Source and target discrete distributions (left) and the optimal plan (right) for a given cost matrix. Observe how the plan seems extremely sparse with the plans almost completely supported on the plot of a function. Though this a discrete example, since these mixtures of Gaussians are absolutely continuous, the OT cost is unique and equal to Monge's solution (Brenier thm), which can seen from the plot. Furthermore, also in line with Brenier thm,  note that the transport is monotonic, meaning transported masses \emph{do not cross paths}.}    
     \label{fig:kantorovich_example_continuous}
 \end{figure}
 
-\begin{remark}
-    Kantorovich's formulation allows for a well-posed optimisation problem with attractive uniqueness and existence properties, and numerically stable solutions. However, there are two main drawback of addressing the computation of the  OT via linear programming: first, the computational cost becomes prohibitive when the number of atoms grow beyond $\approx10^4$. Second, solutions are sparse, quasi-deterministic, matrices given by the vertex of $\Pi(\mu,\nu)$.
+\begin{remark}[Drawbacks of the linear program]
+    Kantorovich's formulation allows for a well-posed optimisation problem with attractive uniqueness and existence properties, and numerically stable solutions. However, there are two main drawback of addressing the computation of the  OT via linear programming: first, the computational cost becomes prohibitive when the number of atoms grow beyond $\approx10^4$. Second, solutions are sparse, quasi-deterministic, matrices given at the vertices of $\Pi(\mu,\nu)$.
 \end{remark}
 
 \paragraph{Entropy-regularised OT (Sinkhorn).}
+
+To address the computational limitations of linear programming approaches,
+a popular strategy is to add an entropic regularisation term to the
+Kantorovich problem, leading to fast iterative algorithms.
+This approach was popularised in machine learning by \cite{cuturi_2013_sinkhorn}.
+
 
 For $\alpha\in\R_+$, define
 \begin{equation}
@@ -404,7 +400,7 @@ and consider the constrained OT problem wrt the cost $C$:
     \pi_\alpha^\star = \argmin_{\pi\in\Pi_\alpha(\mu,\nu)} \langle C ,\pi \rangle.
     \label{eq:optimal_pi_reg1}
 \end{equation}
-Fig.~\ref{fig:polyotope2} shows an illustration of this optimisation problem.
+Fig.~\ref{fig:polyotope2} shows an pictorial representation of this formulation.
 
 \begin{figure}
     \centering
@@ -413,33 +409,46 @@ Fig.~\ref{fig:polyotope2} shows an illustration of this optimisation problem.
     \label{fig:polyotope2}
 \end{figure}
 
-Given that the optimisation variable in this setting is $\pi$, note that we can write 
+Given that the optimisation variable in this setting is $\pi$, we can write 
 \begin{align}
     \KL{\pi}{\mu\otimes\nu} 
-    &= \sum_{i,j=1}^{N,M} \pi_{i,j}\log\frac{\pi_{i,j}}{\mu_i\nu_j} \nonumber \\
-    &\propto  \sum_{i,j=1}^{N,M} \pi_{i,j}\log \pi_{i,j} \nonumber\\
-    &=  -H(\pi).
+    &= \sum_{i=1}^{N}\sum_{j=1}^{M} \pi_{i,j}\log\frac{\pi_{i,j}}{\mu_i\nu_j} \nonumber \\
+    &\propto_\pi  \sum_{i=1}^{N}\sum_{j=1}^{M} \pi_{i,j}\log \pi_{i,j} \nonumber\\
+    &=  -H(\pi),
 \end{align}
-As a consequence, the optimal plan in eq.~\eqref{q:optimal_pi_reg1} can be rewritten using a Lagrangian formulation as 
+where $\propto_\pi$ denotes equality up to additive terms independent of $\pi$
+(since the marginals of $\pi$ are fixed to be $\mu$ and $\nu$).
+
+As a consequence, the optimal plan in eq.~\eqref{eq:optimal_pi_reg1} can be rewritten using a Lagrangian formulation as 
 \begin{equation}
     \pi_\alpha^\star = \argmin_{\pi\in\Pi(\mu,\nu)} \langle C ,\pi \rangle - \frac{1}{\lambda} H(\pi),
     \label{eq:optimal_pi_reg2}
 \end{equation}
-where there one, and only one, $\alpha\in\R_+$ for each $\lambda\in\R_+$.
+where there is one, and only one, $\alpha\in\R_+$ for each $\lambda\in\R_+$.
 
 The Lagrangian is given by 
+\[
+\mathcal{L}(\pi,f,g)
+=
+\sum_{i=1}^{n}\sum_{j=1}^{m}\left(\frac{1}{\lambda}\pi_{ij} \log\pi_{ij} + \pi_{ij}c_{ij}\right)
++ f^\top(\pi\mathbf{1}_m - \mu) + g^\top(\pi^\top\mathbf{1}_n - \nu),
+\]
+and thus $\partial \mathcal{L} / \partial \pi_{ij} = 0$ yields
+\[
+\pi_{ij} = e^{-1-\lambda f_i}\,e^{-\lambda c_{ij}}\,e^{-\lambda g_j},
+\]
+meaning that the solution has the form
+\[
+\pi_\lambda^* = \diag(u)\, K \,\diag(v),
+\]
+where $K_{ij}= \exp\!\left(-\lambda C_{ij} \right)$ (entrywise). \\
 
-$$\mathcal{L}(\pi,\alpha,\beta) = \sum_{ij} \frac{1}{\lambda}\pi_{ij} \log\pi_{ij} + \pi_{ij}c_{ij} + \alpha^\top(\pi\mathbf{1}_m - \mu) + \beta^\top(\pi^\top\mathbf{1}_n - \nu)$$
-and thus $\partial \mathcal{L} / \partial \pi_{ij} = 0 \Rightarrow \pi_{ij} = e^{-1/2-\lambda\alpha_i}e^{-\lambda c_{ij}}e^{-1/2-\lambda\beta_j}$, meaning that the solution has the form
-$$\pi_\lambda^* = \diag(u) K \diag(v),$$
-where $K= \exp\left(-\lambda C \right) $. \\
-
-Finding $u$ and $v$ is not easy. However, [Sinkhorn, 1964] states that since the entries of $K$ are positive, there is an unique $K$ such that $\diag(u) K \diag(v)\in\Pi({\mu},{\nu})$. Therefore, $u,v$ need to be modified such that $\diag(u) K \diag(v)$ is projected onto $\Pi({\mu},{\nu})$, that is (Sinkhorn iterations),
+Finding $u$ and $v$ is not easy. However, \cite{sinkhorn_1964} states that since the entries of $K$ are positive, there exist (essentially unique) scaling vectors $u,v$ such that $\diag(u) K \diag(v)\in\Pi({\mu},{\nu})$. Therefore, $u,v$ can be updated so that $\diag(u) K \diag(v)$ satisfies the marginal constraints, that is (Sinkhorn iterations),
 \begin{equation}
-    (u,v) \leftarrow (\mu./Kv, \nu./K'u ).
+    u \leftarrow \mu./(Kv), \qquad v \leftarrow \nu./(K^\top u ).
 \end{equation}
 
-Fig.~\ref{fig:sinkhorn_iterations} shows an illustration of optimal transport plans found via linear programming and sinkhorn.
+Fig.~\ref{fig:sinkhorn_iterations} shows an illustration of optimal transport plans found via linear programming and Sinkhorn.
 
 \begin{figure}
     \centering
@@ -454,18 +463,292 @@ Fig.~\ref{fig:sinkhorn_iterations} shows an illustration of optimal transport pl
 
 \section{Metric properties}
 
-\begin{itemize}
-    \item define distance, why is W a distance
-    \item Geometry and weak convergence
-    \item dual problem won't be covered
-    \item barycenters and interpolants
-\end{itemize}
+The critical feature of OT theory in the context of generative modelling is the OT problem defines a distance between probability distributions. For this, it is necessary that the cost function takes the form $c(x,y) = d(x,y)^p$, where $d(\cdot,\cdot)$ is a distance defined on the support of the distributions involved, and $p\in\N$. Critically, OT is said to \emph{lift} the distance $d$ from the sample space to the space of distributions, thus translating the geometric properties from the sample to the distribution space. 
+
+\begin{definition}[Wasserstein distance]
+Let $(\cX,d)$ be a metric space and let $\mu$ and $\nu$ be probability measures on
+$\cX$ with finite $p$-th moments. The \emph{$p$-Wasserstein distance} between $\mu$
+and $\nu$ is defined as
+\[
+W_p(\mu,\nu)
+\defeq
+\left(
+\inf_{\pi\in\Pi(\mu,\nu)}
+\int_{\cX\times\cX} d(x,y)^p \, d\pi(x,y)
+\right)^{1/p}.
+\]
+\end{definition}
+
+\begin{remark}[Metric properties of the Wasserstein distance]
+For $p\ge 1$, the $p$-Wasserstein distance $W_p$ defines a true metric on the space
+of probability measures with finite $p$-th moments: it is nonnegative, symmetric,
+vanishes if and only if the two measures coincide, and satisfies the triangle
+inequality. The first three properties follow directly from the definition, while
+the triangle inequality relies on the ability to \emph{glue} optimal transport
+plans. Intuitively, transporting mass from $\mu$ to $\nu$ and then from $\nu$ to
+$\lambda$ cannot be cheaper than transporting it directly from $\mu$ to
+$\lambda$: since one optimal plan defines the lowest-cost transport procedure, forcing the transport to visit any intermediate measure can only increase the overall cost.
+\end{remark}
 
 
+\begin{remark}[Choice of the ground metric]
+When $\cX\subseteq\R^d$, we will mostly consider 
+$d(x,y)=\|x-y\|_2$, the Euclidean distance. This choice leads to a particularly rich geometric theory and allows for explicit solutions and efficient algorithms in a number of cases, such as Gaussian measures and one-dimensional distributions as seen above.
+\end{remark}
+
+\begin{remark}[Discrete measures]
+When $\mu=\sum_{i=1}^N \mu_i\delta_{x_i}$ and $\nu=\sum_{j=1}^M \nu_j\delta_{y_j}$ are discrete probability measures, the $p$-Wasserstein distance reduces to a finite dimensional optimization problem:
+\[
+W_p^p(\mu,\nu)
+=
+\min_{P\in\Pi(\mu,\nu)}
+\sum_{i=1}^N\sum_{j=1}^M d(x_i,y_j)^p\,P_{ij},
+\]
+where $\Pi(\mu,\nu)$ denotes the transport polytope. Recall that, in this case, computing $W_p$ amounts to solving a linear program.
+\end{remark}
+
+Fig.~\ref{fig:Wasserstein_1d} shows a comparison between $p$-Wasserstein and $l_p$ distances for distributions as their support becomes far from one another. 
+\begin{figure}
+    \centering
+    \includegraphics[width=0.9\textwidth]{img/week5_Wasserstein_1d.pdf}
+    \caption{Comparison between $W_p$ and $l_p$, $p\in\{1,2\}$, for two unimodal distributions. Notice how the $l_p$ distances become uninformative as the support between the source and target distributions becomes too far from each other; conversely, the $W_p$ distances inherit the geometric property of the ground distance and keep an account of such separation.}
+    \label{fig:Wasserstein_1d}
+\end{figure}
+
+\missing{Add the missing axis labels in Fig.~\ref{fig:Wasserstein_1d}. }
+
+\begin{remark}[Suitability of $W_p$ for learning]
+Thus far, we have considered the Wasserstein distance as a metric on spaces of
+probability measures. In learning applications, however, we are typically
+interested in spaces of \emph{generative models}, that is, families of probability
+distributions $(P_\theta)_{\theta\in\Theta}$ indexed by parameters $\theta$. In
+this setting, learning requires not only a notion of distance, but also a
+meaningful notion of convergence.
+
+Let $\mu_{\text{data}}$ denote the true data distribution. The goal of learning is
+to find parameters $\theta$ such that $P_\theta$ converges to $\mu_{\text{data}}$,
+or equivalently, such that $D(\mu_{\text{data}},P_\theta)\to 0$ for a reasonable
+divergence $D$. A key advantage of Wasserstein distances is that they metrize a
+notion of convergence that is sensitive to the geometry of the underlying space.
+For instance, if $x_i\to x_0$ in $\mathbb{R}^d$, then $W_p(\delta_{x_i},\delta_{x_0})
+\to 0$, whereas many classical divergences fail to capture this intuitive
+convergence. As a result, the Wasserstein distance provides a natural framework both for constructing sequences of generative models that converge to a target distribution and assess that convergence, that is, to design a learning algorithm.
 
 
+\end{remark}
+
+
+\paragraph{Geodesics in the Wasserstein space.}
+
+\begin{definition}[Wasserstein space]
+Let $(\cX,d)$ be a metric space and let $p\ge 1$. Denote by
+$\cP(\cX)$ the set of all probability measures on $\mathcal X$.
+The \emph{$p$-Wasserstein space} is defined as
+\[
+\mathcal W_p(\mathcal X)
+=
+\left\{
+\mu \in \cP(\mathcal X)
+\;\middle|\;
+\int_{\cX} d(x,x_0)^p\,d\mu(x) < \infty
+\ \text{for some (hence any) } x_0\in\mathcal X
+\right\},
+\]
+and is equipped with the $p$-Wasserstein distance $W_p$.
+\end{definition}
+
+\begin{remark}[Intuition]
+The Wasserstein space $\mathcal W_p(\cX)$ consists of all probability
+measures whose mass does not escape to infinity too quickly, so that transporting
+mass over distance according to the cost $d^p$ has finite total cost.
+\end{remark}
+
+
+In geometry, a geodesic generalises the notion of a straight line: it is the shortest path between two points in a given space. In the Euclidean space equipped with the $\ell_2$ distance, geodesics correspond to linear interpolations between points, and the space is said to be geodesic. A similar notion exists in the Wasserstein space. While a naive interpolation between distributions, given by $(1-t)\mu_1 + t\mu_2$, corresponds to a \emph{vertical} interpolation of densities---see Fig.~\ref{fig:Euclidean_geodesic}, it does not generally represent the shortest path in Wasserstein space.
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[trim={2cm 4.5cm 2cm 5cm},clip, width=0.55\textwidth]{img/week5_straightLine.pdf}
+    \hfill
+    \includegraphics[trim={2cm 2cm 2cm 2cm},clip, width=0.35\textwidth]{img/week5_geodesic_Euc_1d.pdf}
+    \caption{Left: geodesics as straight lines in Euclidean space. Right: linear
+    interpolation between one-dimensional distributions.}
+    \label{fig:Euclidean_geodesic}
+\end{figure}
+
+The Wasserstein space $\mathcal{W}_p$ is itself a geodesic space. When an optimal transport map $T$ exists between two measures $\mu_1$ and $\mu_2$, a Wasserstein geodesic connecting them is given by
+\[
+\forall t\in[0,1], \qquad
+\mu^{1\to 2}(t) = \bigl((1-t)\mathrm{Id} + tT\bigr)_\# \mu_1.
+\]
+This construction represents a \emph{horizontal} interpolation of mass, where probability is gradually displaced along optimal transport paths. As a result, Wasserstein geodesics provide intuitive and physically meaningful interpolations between distributions, as illustrated in Fig.~\ref{fig:W_geodesic_1d}.
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[trim={2cm 2cm 2cm 2cm},clip, width=0.5\textwidth]{img/week5_geodesic_1d.pdf}
+    \caption{A Wasserstein geodesic between two one-dimensional distributions,
+    obtained by transporting mass along optimal paths.}
+    \label{fig:W_geodesic_1d}
+\end{figure}
+
+\paragraph{Wasserstein barycenters.}
+As direct consequence of the Geodesic property of the Wasserstein space,  optimal transport also provides a natural notion of averaging multiple probability measures. Given a collection of distributions $(\mu_i)_{i=1}^s$ and weights $\lambda_i>0$ such that $\sum_{i=1}^s \lambda_i=1$, the \emph{Wasserstein barycenter} is defined as
+\[
+\bar{\mu}
+=
+\arg\min_{\mu}
+\sum_{i=1}^s \lambda_i\, W_p^p(\mu,\mu_i).
+\]
+This definition generalizes Euclidean averaging to the space of probability
+measures, taking into account the geometry induced by optimal transport. For discrete measures, one may restrict the optimization to measures with fixed support, fixed weights, or both, leading to tractable computational formulations.
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[trim={2cm 2cm 2cm 2cm},clip, width=0.45\textwidth]{img/week5_distrib_bary.pdf}
+    \hfill
+    \vline
+    \hfill
+    \includegraphics[trim={2cm 2cm 2cm 2cm},clip, width=0.45\textwidth]{img/week5_barycenter_2d.pdf}
+    \caption{Illustration of Wasserstein barycenters: averaging multiple
+    distributions while respecting the geometry of the underlying space.}
+\end{figure}
+
+Wasserstein barycenters differ fundamentally from Euclidean averages, especially in applications such as image processing. While Euclidean averaging often leads to blurred or unrealistic results, Wasserstein barycenters preserve geometric structure by transporting mass coherently across samples. This contrast is illustrated in Fig.~\ref{fig:bary_images}, where averaging images in Wasserstein
+space produces sharper and more meaningful averages.
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=0.48\textwidth]{img/week5_symboles_wine_L2.pdf}
+    \hfill
+    \includegraphics[width=0.48\textwidth]{img/week5_symboles_wine_bary.pdf}
+    \caption{Left: Euclidean averaging of images. Right: Wasserstein barycenter,
+    which preserves geometric features.}
+    \label{fig:bary_images}
+\end{figure}
+
+\iffalse
 
 \section{Application: colour transfer}
+
+\section*{Exercises}
+
+\begin{exercise}[Monge non-existence]
+Give a concrete example with \(N=2\), \(M=3\), and strictly positive weights \(\mu_i,\nu_j\)
+such that no Monge map \(T\) satisfying \(T_\#\mu=\nu\) exists. Explain briefly why
+the obstruction is the impossibility of mass splitting.
+\end{exercise}
+
+\begin{exercise}[Monge non-uniqueness]
+Construct a discrete example with \(N=M=2\) and a cost matrix \(C\) such that there are at
+least two distinct Monge maps achieving the same optimal cost. (Hint: use ties in \(C\).)
+\end{exercise}
+
+\begin{exercise}[A coupling always exists]
+Let \(\mu\in\mathbb{R}^N_+\) and \(\nu\in\mathbb{R}^M_+\) with \(\sum_i\mu_i=\sum_j\nu_j=1\).
+Show that \(P=\mu\nu^\top\) belongs to \(\Pi(\mu,\nu)\). Interpret this plan as an
+\emph{independent coupling}.
+\end{exercise}
+
+\begin{exercise}[Compactness and vertices]
+Show that the transport polytope \(\Pi(\mu,\nu)\subset \mathbb{R}^{N\times M}\) is compact.
+Then argue that minimizing a linear functional \(\langle C,P\rangle\) over \(\Pi(\mu,\nu)\)
+attains its optimum at a vertex (extreme point) of \(\Pi(\mu,\nu)\).
+\end{exercise}
+
+\begin{exercise}[Solve a $2\times 2$ OT problem by hand]
+Let \(N=M=2\), \(\mu=(1/2,1/2)\), \(\nu=(1/2,1/2)\), and
+\[
+C=\begin{pmatrix}
+0 & 1\\
+1 & 0
+\end{pmatrix}.
+\]
+Solve the Kantorovich problem: find an optimal plan \(P^\star\in\Pi(\mu,\nu)\) and the
+optimal cost. Does \(P^\star\) correspond to a Monge map?
+\end{exercise}
+
+\begin{exercise}[Discrete OT and assignment]
+Assume \(N=M\) and \(\mu_i=\nu_j=1/N\). Show that any \(P\in\Pi(\mu,\nu)\) is doubly
+stochastic. Using the Birkhoff--von Neumann theorem, describe the vertices of
+\(\Pi(\mu,\nu)\) and explain why the Kantorovich problem reduces to an assignment problem.
+\end{exercise}
+
+\begin{exercise}[1D formula for $W_p$]
+Let \(\mu,\nu\) be probability measures on \(\mathbb{R}\) and define the quantile function
+\(F_\mu^{-}(t)=\inf\{x\in\mathbb{R}:F_\mu(x)\ge t\}\). Starting from the monotone
+rearrangement \(T(x)=F_\nu^{-}(F_\mu(x))\), derive
+\[
+W_p^p(\mu,\nu)=\int_0^1 \bigl|F_\mu^{-}(t)-F_\nu^{-}(t)\bigr|^p\,dt.
+\]
+\end{exercise}
+
+\begin{exercise}[Diracs and convergence]
+Let \(x_k\to x_0\) in \(\mathbb{R}^d\). Compute \(W_p(\delta_{x_k},\delta_{x_0})\) explicitly.
+Use this to explain why \(W_p\) captures a meaningful notion of convergence for measures.
+\end{exercise}
+
+\begin{exercise}[Gaussian OT in one dimension]
+Let \(\mu=\mathcal{N}(m_\mu,\sigma_\mu^2)\) and \(\nu=\mathcal{N}(m_\nu,\sigma_\nu^2)\).
+\begin{enumerate}
+\item Derive the optimal transport map \(T(x)=m_\nu+\frac{\sigma_\nu}{\sigma_\mu}(x-m_\mu)\).
+\item Compute \(W_2^2(\mu,\nu)\) and simplify the expression.
+\end{enumerate}
+\end{exercise}
+
+\begin{exercise}[Gaussian OT sanity checks in $d$ dimensions]
+Let \(\mu=\mathcal{N}(m_\mu,\Sigma_\mu)\) and \(\nu=\mathcal{N}(m_\nu,\Sigma_\nu)\).
+Using the closed-form formula for \(W_2^2(\mu,\nu)\), verify the following:
+\begin{enumerate}
+\item If \(\Sigma_\mu=\Sigma_\nu\), then \(W_2^2(\mu,\nu)=\|m_\mu-m_\nu\|_2^2\).
+\item If \(m_\mu=m_\nu\) and \(\Sigma_\mu\) and \(\Sigma_\nu\) commute, simplify the trace term
+as much as possible (e.g.\ by diagonalizing in a common basis).
+\end{enumerate}
+\end{exercise}
+
+\begin{exercise}[Entropic regularization: limiting regimes]
+Consider the regularized OT problem
+\[
+\min_{P\in\Pi(\mu,\nu)} \langle C,P\rangle - \frac{1}{\lambda}H(P).
+\]
+Explain qualitatively what happens to the optimal plan as \(\lambda\to 0\) and as
+\(\lambda\to\infty\). Which limit should recover the unregularized OT plan?
+\end{exercise}
+
+\begin{exercise}[Derive Sinkhorn updates]
+Assume \(K=\exp(-\lambda C)\) has strictly positive entries and let
+\(P=\mathrm{diag}(u)K\mathrm{diag}(v)\).
+Show that imposing the marginal constraints \(P\mathbf{1}_m=\mu\) and
+\(P^\top\mathbf{1}_n=\nu\) leads to the iterative updates
+\[
+u \leftarrow \mu./(Kv),\qquad v \leftarrow \nu./(K^\top u),
+\]
+where \(./\) denotes elementwise division.
+\end{exercise}
+
+\begin{exercise}[Wasserstein geodesics in one dimension]
+Let \(\mu_1,\mu_2\) be probability measures on \(\mathbb{R}\) with quantile functions
+\(F_{\mu_1}^{-}\) and \(F_{\mu_2}^{-}\).
+Show that the Wasserstein geodesic \((\mu_t)_{t\in[0,1]}\) satisfies
+\[
+F^{-}_{\mu_t}(s)=(1-t)F^{-}_{\mu_1}(s)+tF^{-}_{\mu_2}(s),\qquad s\in[0,1].
+\]
+Interpret this identity as a ``horizontal'' interpolation of mass.
+\end{exercise}
+
+\begin{exercise}[Barycenters and interpolation in one dimension]
+Let \(\mu_1,\mu_2\) be probability measures on \(\mathbb{R}\) and \(\lambda\in(0,1)\).
+Consider the barycenter problem
+\[
+\bar{\mu}=\arg\min_{\mu}\ \lambda W_p^p(\mu,\mu_1)+(1-\lambda)W_p^p(\mu,\mu_2).
+\]
+Show that in one dimension the barycenter quantile is given by
+\[
+F_{\bar{\mu}}^{-}(s)=\lambda F_{\mu_1}^{-}(s)+(1-\lambda)F_{\mu_2}^{-}(s),
+\qquad s\in[0,1].
+\]
+\end{exercise}
+
+\fi
 
 
 
