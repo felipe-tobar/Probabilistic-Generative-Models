@@ -626,9 +626,7 @@ space produces sharper and more meaningful averages.
     \label{fig:bary_images}
 \end{figure}
 
-\iffalse
-
-\section{Application: colour transfer}
+%\section{Application: colour transfer}
 
 \section*{Exercises}
 
@@ -640,19 +638,13 @@ the obstruction is the impossibility of mass splitting.
 
 \begin{exercise}[Monge non-uniqueness]
 Construct a discrete example with \(N=M=2\) and a cost matrix \(C\) such that there are at
-least two distinct Monge maps achieving the same optimal cost. (Hint: use ties in \(C\).)
+least two distinct Monge maps achieving the same optimal cost.
 \end{exercise}
 
 \begin{exercise}[A coupling always exists]
 Let \(\mu\in\mathbb{R}^N_+\) and \(\nu\in\mathbb{R}^M_+\) with \(\sum_i\mu_i=\sum_j\nu_j=1\).
 Show that \(P=\mu\nu^\top\) belongs to \(\Pi(\mu,\nu)\). Interpret this plan as an
-\emph{independent coupling}.
-\end{exercise}
-
-\begin{exercise}[Compactness and vertices]
-Show that the transport polytope \(\Pi(\mu,\nu)\subset \mathbb{R}^{N\times M}\) is compact.
-Then argue that minimizing a linear functional \(\langle C,P\rangle\) over \(\Pi(\mu,\nu)\)
-attains its optimum at a vertex (extreme point) of \(\Pi(\mu,\nu)\).
+\emph{independent coupling} and explain how mass is transported under this plan.
 \end{exercise}
 
 \begin{exercise}[Solve a $2\times 2$ OT problem by hand]
@@ -667,24 +659,17 @@ Solve the Kantorovich problem: find an optimal plan \(P^\star\in\Pi(\mu,\nu)\) a
 optimal cost. Does \(P^\star\) correspond to a Monge map?
 \end{exercise}
 
-\begin{exercise}[Discrete OT and assignment]
-Assume \(N=M\) and \(\mu_i=\nu_j=1/N\). Show that any \(P\in\Pi(\mu,\nu)\) is doubly
-stochastic. Using the Birkhoff--von Neumann theorem, describe the vertices of
-\(\Pi(\mu,\nu)\) and explain why the Kantorovich problem reduces to an assignment problem.
+
+\begin{exercise}[1D OT between a two-point distribution and a uniform law]
+Let \(\mu=\tfrac12\delta_{0}+\tfrac12\delta_{1}\) and \(\nu=\mathrm{Unif}([0,1])\) on \(\mathbb{R}\).
+Using the quantile representation, compute \(W_1(\mu,\nu)\), and describe what the optimal plan does.
+(You may compute the integrals explicitly.)
 \end{exercise}
 
-\begin{exercise}[1D formula for $W_p$]
-Let \(\mu,\nu\) be probability measures on \(\mathbb{R}\) and define the quantile function
-\(F_\mu^{-}(t)=\inf\{x\in\mathbb{R}:F_\mu(x)\ge t\}\). Starting from the monotone
-rearrangement \(T(x)=F_\nu^{-}(F_\mu(x))\), derive
-\[
-W_p^p(\mu,\nu)=\int_0^1 \bigl|F_\mu^{-}(t)-F_\nu^{-}(t)\bigr|^p\,dt.
-\]
-\end{exercise}
-
-\begin{exercise}[Diracs and convergence]
-Let \(x_k\to x_0\) in \(\mathbb{R}^d\). Compute \(W_p(\delta_{x_k},\delta_{x_0})\) explicitly.
-Use this to explain why \(W_p\) captures a meaningful notion of convergence for measures.
+\begin{exercise}[Wasserstein geodesic between two Gaussians in one dimension]
+Let \(\mu_0=\mathcal N(m_0,\sigma_0^2)\) and \(\mu_1=\mathcal N(m_1,\sigma_1^2)\) on \(\mathbb{R}\).
+Using the fact that the optimal map is affine, show that the displacement interpolation
+\(\mu_t=((1-t)\mathrm{Id}+tT)_\#\mu_0\) is Gaussian, and identify its mean and variance as functions of \(t\).
 \end{exercise}
 
 \begin{exercise}[Gaussian OT in one dimension]
@@ -695,62 +680,25 @@ Let \(\mu=\mathcal{N}(m_\mu,\sigma_\mu^2)\) and \(\nu=\mathcal{N}(m_\nu,\sigma_\
 \end{enumerate}
 \end{exercise}
 
-\begin{exercise}[Gaussian OT sanity checks in $d$ dimensions]
-Let \(\mu=\mathcal{N}(m_\mu,\Sigma_\mu)\) and \(\nu=\mathcal{N}(m_\nu,\Sigma_\nu)\).
-Using the closed-form formula for \(W_2^2(\mu,\nu)\), verify the following:
+
+
+\begin{exercise}[1D Wasserstein barycenter of two distributions]
+Let $\mu_1=\mathrm{Unif}([0,1])$ and $\mu_2=\mathrm{Unif}([2,3])$ on $\mathbb{R}$, and let
+$\lambda\in(0,1)$.
+Compute explicitly the $2$-Wasserstein barycenter
+\[
+\bar\mu=\arg\min_\mu \ \lambda W_2^2(\mu,\mu_1)+(1-\lambda)W_2^2(\mu,\mu_2).
+\]
+Identify the support of $\bar\mu$ and describe it geometrically.
+\end{exercise}
+
+
+
+\begin{exercise}[Barycenter vs Euclidean averaging]
+Let $\mu_1=\delta_0$ and $\mu_2=\delta_1$ on $\mathbb{R}$.
 \begin{enumerate}
-\item If \(\Sigma_\mu=\Sigma_\nu\), then \(W_2^2(\mu,\nu)=\|m_\mu-m_\nu\|_2^2\).
-\item If \(m_\mu=m_\nu\) and \(\Sigma_\mu\) and \(\Sigma_\nu\) commute, simplify the trace term
-as much as possible (e.g.\ by diagonalizing in a common basis).
+\item Compute the Euclidean average $\tfrac12(\mu_1+\mu_2)$.
+\item Compute the Wasserstein barycenter with equal weights.
 \end{enumerate}
+Compare and interpret the two results.
 \end{exercise}
-
-\begin{exercise}[Entropic regularization: limiting regimes]
-Consider the regularized OT problem
-\[
-\min_{P\in\Pi(\mu,\nu)} \langle C,P\rangle - \frac{1}{\lambda}H(P).
-\]
-Explain qualitatively what happens to the optimal plan as \(\lambda\to 0\) and as
-\(\lambda\to\infty\). Which limit should recover the unregularized OT plan?
-\end{exercise}
-
-\begin{exercise}[Derive Sinkhorn updates]
-Assume \(K=\exp(-\lambda C)\) has strictly positive entries and let
-\(P=\mathrm{diag}(u)K\mathrm{diag}(v)\).
-Show that imposing the marginal constraints \(P\mathbf{1}_m=\mu\) and
-\(P^\top\mathbf{1}_n=\nu\) leads to the iterative updates
-\[
-u \leftarrow \mu./(Kv),\qquad v \leftarrow \nu./(K^\top u),
-\]
-where \(./\) denotes elementwise division.
-\end{exercise}
-
-\begin{exercise}[Wasserstein geodesics in one dimension]
-Let \(\mu_1,\mu_2\) be probability measures on \(\mathbb{R}\) with quantile functions
-\(F_{\mu_1}^{-}\) and \(F_{\mu_2}^{-}\).
-Show that the Wasserstein geodesic \((\mu_t)_{t\in[0,1]}\) satisfies
-\[
-F^{-}_{\mu_t}(s)=(1-t)F^{-}_{\mu_1}(s)+tF^{-}_{\mu_2}(s),\qquad s\in[0,1].
-\]
-Interpret this identity as a ``horizontal'' interpolation of mass.
-\end{exercise}
-
-\begin{exercise}[Barycenters and interpolation in one dimension]
-Let \(\mu_1,\mu_2\) be probability measures on \(\mathbb{R}\) and \(\lambda\in(0,1)\).
-Consider the barycenter problem
-\[
-\bar{\mu}=\arg\min_{\mu}\ \lambda W_p^p(\mu,\mu_1)+(1-\lambda)W_p^p(\mu,\mu_2).
-\]
-Show that in one dimension the barycenter quantile is given by
-\[
-F_{\bar{\mu}}^{-}(s)=\lambda F_{\mu_1}^{-}(s)+(1-\lambda)F_{\mu_2}^{-}(s),
-\qquad s\in[0,1].
-\]
-\end{exercise}
-
-\fi
-
-
-
-
-
