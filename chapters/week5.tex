@@ -1,6 +1,6 @@
 \chapter{Optimal Transport}
 
-\textbf{NB:} This is based on \cite[Ch.~1-2]{peyre_cuturi_2019} and \cite{thorpe_2018_intro_ot}.
+\textbf{NB:} This is based on \cite[Ch.~1-2]{peyre_cuturi_2019} and \cite{kingma2013auto}.
 
 \section{Motivation}
 
@@ -627,19 +627,93 @@ space produces sharper and more meaningful averages.
 \end{figure}
 
 %\section{Application: colour transfer}
+\clearpage
+\newpage
+\section*{Exercises - Optimal Transport}
 
-\section*{Exercises}
-
-\begin{exercise}[Monge non-existence]
-Give a concrete example with \(N=2\), \(M=3\), and strictly positive weights \(\mu_i,\nu_j\)
-such that no Monge map \(T\) satisfying \(T_\#\mu=\nu\) exists. Explain briefly why
-the obstruction is the impossibility of mass splitting.
+\begin{exercise}[Monge existence/non-existence]
+Give two concrete examples with \(N=3\), \(M=3\), and different weight vectors  \(\mu,\nu\) with strictly positive coordinates 
+such that i) a Monge map \(T\) satisfying \(T_\#\mu=\nu\) exists, and ii) a Monge map \(T\) satisfying \(T_\#\mu=\nu\) cannot exist. Explain briefly why the problem in the second case is the impossibility of mass splitting.
 \end{exercise}
+
+\begin{solution}[Monge existence/non-existence]
+
+Let $\mu=(\mu_1,\mu_2,\mu_3)$ on $\{x_1,x_2,x_3\}$ and 
+$\nu=(\nu_1,\nu_2,\nu_3)$ on $\{y_1,y_2,y_3\}$, all coordinates strictly positive.
+
+\medskip
+\noindent\textbf{i) Existence.}
+Take 
+\[
+\mu=(1/2,\,1/3,\,1/6),
+\qquad
+\nu=(1/3,\,1/6,\,1/2).
+\]
+Define the map
+\[
+T(x_1)=y_3, 
+\qquad 
+T(x_2)=y_1, 
+\qquad 
+T(x_3)=y_2.
+\]
+Then $T_\#\mu=\nu$, since each target mass equals exactly one source mass.
+
+\medskip
+\noindent\textbf{ii) Non-existence.}
+Take 
+\[
+\mu=(1/2,\,1/4,\,1/4),
+\qquad
+\nu=(1/3,\,1/3,\,1/3).
+\]
+For any map $T:\{x_1,x_2,x_3\}\to\{y_1,y_2,y_3\}$, we have
+\[
+(T_\#\mu)(y_j)
+=
+\sum_{i:\,T(x_i)=y_j}\mu_i,
+\]
+so target mass value should be of the form $\sum_{a\in A} a$, where $A$ is a subset of 
+\[
+\cA = \{1/2,1/4,1/4\}.
+\]
+Equivalently, the target values are in the set
+\[
+\{0,\;1/4,\;1/2,\;3/4,\;1\}.
+\]
+Since $1/3$ does not belong to this set, no such $T$ can satisfy $T_\#\mu=\nu$.
+
+The non-existence of a map in the second case is that a Monge map cannot \emph{split} mass: each source atom must be sent entirely to a single target point, so target masses must be sums of whole source masses rather than arbitrary fractions.
+\end{solution}
+
+
 
 \begin{exercise}[Monge non-uniqueness]
-Construct a discrete example with \(N=M=2\) and a cost matrix \(C\) such that there are at
+Construct a discrete example with \(N=M=2\) and a cost matrix \(C\) with strictly-positive entries such that there are at
 least two distinct Monge maps achieving the same optimal cost.
 \end{exercise}
+
+\begin{solution}[Monge non-uniqueness]
+Let $\mu=\nu=(1/2,\,1/2)$ on $\{x_1,x_2\}$ and $\{y_1,y_2\}$, and take the strictly-positive cost matrix
+\[
+C=\begin{pmatrix}
+1 & 1\\
+1 & 1
+\end{pmatrix}.
+\]
+Then any Monge map has total cost
+\[
+\frac12\,C_{1,T(x_1)}+\frac12\,C_{2,T(x_2)}=\frac12\cdot 1+\frac12\cdot 1=1.
+\]
+In particular, the two distinct Monge maps
+\[
+T_1(x_1)=y_1,\quad T_1(x_2)=y_2,
+\qquad\text{and}\qquad
+T_2(x_1)=y_2,\quad T_2(x_2)=y_1
+\]
+both satisfy $T_\#\mu=\nu$ and achieve the same (optimal) cost.
+\end{solution}
+
 
 \begin{exercise}[A coupling always exists]
 Let \(\mu\in\mathbb{R}^N_+\) and \(\nu\in\mathbb{R}^M_+\) with \(\sum_i\mu_i=\sum_j\nu_j=1\).
@@ -647,30 +721,143 @@ Show that \(P=\mu\nu^\top\) belongs to \(\Pi(\mu,\nu)\). Interpret this plan as 
 \emph{independent coupling} and explain how mass is transported under this plan.
 \end{exercise}
 
+\begin{solution}[A coupling always exists]
+Let $P=\mu\nu^\top$, i.e.\ $P_{ij}=\mu_i\nu_j\ge 0$. Then the row sums are
+\[
+\sum_{j=1}^M P_{ij}=\sum_{j=1}^M \mu_i\nu_j=\mu_i\sum_{j=1}^M \nu_j=\mu_i,
+\]
+and the column sums are
+\[
+\sum_{i=1}^N P_{ij}=\sum_{i=1}^N \mu_i\nu_j=\nu_j\sum_{i=1}^N \mu_i=\nu_j.
+\]
+Hence $P\mathbf 1_M=\mu$ and $P^\top \mathbf 1_N=\nu$, so $P\in\Pi(\mu,\nu)$.
+
+This plan is called the \emph{independent coupling} because it corresponds to drawing
+$(X,Y)$ with $X\sim\mu$ and $Y\sim\nu$ independently, i.e.\ $\mathbb P(X=x_i,Y=y_j)=\mu_i\nu_j$.
+Under this plan, each source mass $\mu_i$ is split proportionally across all targets:
+from $x_i$ (where there is a $\mu_i$ amount of total mass) an amount $\mu_i\nu_j$ is sent to $y_j$ for every $j$.
+\end{solution}
+
+
 \begin{exercise}[Solve a $2\times 2$ OT problem by hand]
-Let \(N=M=2\), \(\mu=(1/2,1/2)\), \(\nu=(1/2,1/2)\), and
+Let \(N=M=2\), \(\mu=(\mu_1,\mu_2)\), \(\nu=(\nu_1,\nu_2)\), where $\mu_1+\mu_2=\nu_1+\nu_2=1$, and
 \[
 C=\begin{pmatrix}
-0 & 1\\
-1 & 0
+c_{11} & c_{12}\\
+c_{21} & c_{22}
 \end{pmatrix}.
 \]
 Solve the Kantorovich problem: find an optimal plan \(P^\star\in\Pi(\mu,\nu)\) and the
-optimal cost. Does \(P^\star\) correspond to a Monge map?
+optimal cost.
 \end{exercise}
+
+\begin{solution}[Solve a $2\times 2$ OT problem by hand]
+Any $P\in\Pi(\mu,\nu)$ is determined by $p:=P_{11}$:
+\[
+P(p)=
+\begin{pmatrix}
+p & \mu_1-p\\
+\nu_1-p & \mu_2-\nu_1+p
+\end{pmatrix},
+\qquad 
+p\in\big[\max\{0,\nu_1-\mu_2\},\ \min\{\mu_1,\nu_1\}\big].
+\]
+The cost is affine in $p$:
+\begin{align*}
+\langle C,P(p)\rangle
+&= c_{11}p+c_{12}(\mu_1-p)+c_{21}(\nu_1-p)+c_{22}(\mu_2-\nu_1+p)\\
+&= \text{const} \;+\; p\,\Delta,
+\end{align*}
+where
+\[
+\Delta := c_{11}-c_{12}-c_{21}+c_{22}.
+\]
+Hence the optimum is attained at an extreme of the feasible region:
+\[
+p^\star=
+\begin{cases}
+\max\{0,\nu_1-\mu_2\}, & \Delta>0,\\[2pt]
+\min\{\mu_1,\nu_1\}, & \Delta<0,\\[2pt]
+\text{any feasible }p, & \Delta=0,
+\end{cases}
+\qquad
+P^\star=P(p^\star),
+\qquad
+\text{opt.\ cost }=\langle C,P(p^\star)\rangle.
+\]
+
+\end{solution}
+
+
 
 
 \begin{exercise}[1D OT between a two-point distribution and a uniform law]
 Let \(\mu=\tfrac12\delta_{0}+\tfrac12\delta_{1}\) and \(\nu=\mathrm{Unif}([0,1])\) on \(\mathbb{R}\).
-Using the quantile representation, compute \(W_1(\mu,\nu)\), and describe what the optimal plan does.
-(You may compute the integrals explicitly.)
+Using the quantile representation, compute \(W_1(\mu,\nu)\), i.e., assume a cost $c(x,y) = |x-y|$, and describe what the optimal plan does
+(compute the integrals explicitly).
 \end{exercise}
+
+\begin{solution}[1D OT between a two-point distribution and a uniform law]
+In one dimension,
+\[
+W_1(\mu,\nu)=\int_0^1 \big|F_\mu^{-1}(t)-F_\nu^{-1}(t)\big|\,dt.
+\]
+Here $F_\nu^{-1}(t)=t$ for $t\in[0,1]$, and
+\[
+F_\mu^{-1}(t)=
+\begin{cases}
+0, & t\in[0,1/2],\\
+1, & t\in(1/2,1].
+\end{cases}
+\]
+Therefore
+\begin{align*}
+W_1(\mu,\nu)
+&=\int_0^{1/2} |0-t|\,dt+\int_{1/2}^{1} |1-t|\,dt \\
+&=\int_0^{1/2} t\,dt+\int_{1/2}^{1} (1-t)\,dt
+=\frac{1}{8}+\frac{1}{8}=\frac14.
+\end{align*}
+
+The optimal coupling is the monotone (quantile) coupling: it sends the lower half of the uniform mass
+$t\in[0,1/2]$ to $0$ and the upper half $t\in(1/2,1]$ to $1$, i.e.\ it splits $\nu$ into two halves and
+matches them with the two atoms of $\mu$.\\
+\textbf{Proposed:} Repeat the exercise for $W_2$.
+\end{solution}
+
 
 \begin{exercise}[Wasserstein geodesic between two Gaussians in one dimension]
 Let \(\mu_0=\mathcal N(m_0,\sigma_0^2)\) and \(\mu_1=\mathcal N(m_1,\sigma_1^2)\) on \(\mathbb{R}\).
-Using the fact that the optimal map is affine, show that the displacement interpolation
+Using the fact that the optimal map is affine for any $p\geq 1$, show that the displacement interpolation
 \(\mu_t=((1-t)\mathrm{Id}+tT)_\#\mu_0\) is Gaussian, and identify its mean and variance as functions of \(t\).
 \end{exercise}
+
+\begin{solution}[Wasserstein geodesic between two Gaussians in one dimension]
+In 1D the optimal map from $\mu_0=\mathcal N(m_0,\sigma_0^2)$ to $\mu_1=\mathcal N(m_1,\sigma_1^2)$ is affine:
+\[
+T(x)=m_1+\frac{\sigma_1}{\sigma_0}(x-m_0).
+\]
+Define the interpolation map
+\[
+S_t(x):=(1-t)x+tT(x)
+= \Big((1-t)+t\frac{\sigma_1}{\sigma_0}\Big)x
++ t\Big(m_1-\frac{\sigma_1}{\sigma_0}m_0\Big),
+\qquad t\in[0,1].
+\]
+Since $S_t$ is affine and $X\sim\mathcal N(m_0,\sigma_0^2)$ implies $S_t(X)$ is Gaussian, we have
+\[
+\mu_t=(S_t)_\#\mu_0=\mathcal N(m_t,\sigma_t^2),
+\]
+with mean and variance
+\[
+m_t = (1-t)m_0+t m_1,
+\qquad
+\sigma_t = (1-t)\sigma_0+t\sigma_1,
+\qquad
+\sigma_t^2 = \big((1-t)\sigma_0+t\sigma_1\big)^2.
+\]
+\end{solution}
+
+
 
 \begin{exercise}[Gaussian OT in one dimension]
 Let \(\mu=\mathcal{N}(m_\mu,\sigma_\mu^2)\) and \(\nu=\mathcal{N}(m_\nu,\sigma_\nu^2)\).
@@ -679,6 +866,48 @@ Let \(\mu=\mathcal{N}(m_\mu,\sigma_\mu^2)\) and \(\nu=\mathcal{N}(m_\nu,\sigma_\
 \item Compute \(W_2^2(\mu,\nu)\) and simplify the expression.
 \end{enumerate}
 \end{exercise}
+
+\begin{solution}[Gaussian OT in one dimension]
+\textbf{1)} In one dimension (for any $p$), the optimal transport map is the monotone rearrangement
+\[
+T = F_\nu^{-1}\circ F_\mu.
+\]
+For $\mu=\mathcal N(m_\mu,\sigma_\mu^2)$,
+\[
+F_\mu(x)=\Phi\!\left(\frac{x-m_\mu}{\sigma_\mu}\right),
+\]
+where
+\[
+\Phi(t)=\frac{1}{\sqrt{2\pi}}\int_{-\infty}^t e^{-s^2/2}\,ds
+\]
+denotes the cumulative distribution function of the standard normal distribution.
+Similarly, for $\nu=\mathcal N(m_\nu,\sigma_\nu^2)$,
+\[
+F_\nu^{-1}(u)=m_\nu+\sigma_\nu\,\Phi^{-1}(u).
+\]
+Hence
+\[
+T(x)=F_\nu^{-1}(F_\mu(x))
+= m_\nu+\sigma_\nu\,\Phi^{-1}\!\left(\Phi\!\left(\frac{x-m_\mu}{\sigma_\mu}\right)\right)
+= m_\nu+\frac{\sigma_\nu}{\sigma_\mu}(x-m_\mu).
+\]
+
+\textbf{2)} Let $X\sim\mu$ and set $Y=T(X)$, so $Y\sim\nu$ and
+\[
+W_2^2(\mu,\nu)=\mathbb E\big[(X-Y)^2\big]=\mathbb E\big[(X-T(X))^2\big].
+\]
+Write $X=m_\mu+\sigma_\mu Z$ with $Z\sim\mathcal N(0,1)$. Then $T(X)=m_\nu+\sigma_\nu Z$, so
+\[
+X-T(X)=(m_\mu-m_\nu)+(\sigma_\mu-\sigma_\nu)Z,
+\]
+and using $\mathbb E[Z]=0$, $\mathbb E[Z^2]=1$,
+\[
+W_2^2(\mu,\nu)=(m_\mu-m_\nu)^2+(\sigma_\mu-\sigma_\nu)^2.
+\]
+\textbf{Proposed:} How does the solution change for other non-Gaussian location-scale distributions (in 1d)?
+\end{solution}
+
+
 
 
 
@@ -693,12 +922,52 @@ Identify the support of $\bar\mu$ and describe it geometrically.
 \end{exercise}
 
 
+\begin{solution}[1D Wasserstein barycenter of two distributions]
+In 1D, the $W_2$-barycenter has quantile function given by the convex combination of quantiles:
+\[
+F_{\bar\mu}^{-1}(t)=\lambda F_{\mu_1}^{-1}(t)+(1-\lambda)F_{\mu_2}^{-1}(t),\qquad t\in(0,1).
+\]
+Since $F_{\mu_1}^{-1}(t)=t$ and $F_{\mu_2}^{-1}(t)=2+t$, we have
+\[
+F_{\bar\mu}^{-1}(t)=\lambda t+(1-\lambda)(2+t)=t+2(1-\lambda).
+\]
+Therefore $\bar\mu=\mathrm{Unif}([2(1-\lambda),\,1+2(1-\lambda)])=\mathrm{Unif}([2-2\lambda,\,3-2\lambda])$.
+
+The barycenter is supported on the interval $[2-2\lambda,\,3-2\lambda]$, i.e.\ the unit-length interval obtained by translating
+$[2,3]$ left by $2\lambda$ (equivalently, translating $[0,1]$ right by $2(1-\lambda)$). Geometrically, the barycenter
+slides linearly between the two intervals.
+\end{solution}
+
+
+
 
 \begin{exercise}[Barycenter vs Euclidean averaging]
 Let $\mu_1=\delta_0$ and $\mu_2=\delta_1$ on $\mathbb{R}$.
 \begin{enumerate}
 \item Compute the Euclidean average $\tfrac12(\mu_1+\mu_2)$.
-\item Compute the Wasserstein barycenter with equal weights.
+\item Compute the Wasserstein barycenter with equal weights, i.e., $\lambda = 1/2$.
 \end{enumerate}
 Compare and interpret the two results.
 \end{exercise}
+
+
+\begin{solution}[Barycenter vs Euclidean averaging]
+1) The Euclidean (mixture) average is
+\[
+\tfrac12(\mu_1+\mu_2)=\tfrac12\delta_0+\tfrac12\delta_1.
+\]
+
+2) The $W_2$-barycenter in 1D with equal weights has quantile
+\[
+F_{\bar\mu}^{-1}(t)=\tfrac12 F_{\mu_1}^{-1}(t)+\tfrac12 F_{\mu_2}^{-1}(t).
+\]
+Since $F_{\delta_0}^{-1}(t)=0$ and $F_{\delta_1}^{-1}(t)=1$ for all $t\in(0,1)$, we get
+\[
+F_{\bar\mu}^{-1}(t)=\tfrac12,
+\]
+hence $\bar\mu=\delta_{1/2}$.
+
+The Euclidean average is a \emph{mixture} with mass split between $0$ and $1$,
+whereas the Wasserstein barycenter \emph{moves} the mass to the midpoint, producing a single Dirac at $1/2$.\\
+\textbf{Proposed:} Repeat the exercise for $\mu_0 = \cN(0,\sigma^2)$ and $\mu_1 = \cN(1,\sigma^2)$.
+\end{solution}
