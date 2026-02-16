@@ -1,24 +1,444 @@
 \chapter{Deep Latent Variable Models}
 
-\textbf{NB:} This is based on \cite{kingma2013auto}.
+\textbf{NB:} This is based on \cite{goodfellow2016deep}, \cite{goodfellow2014gan}, \cite{kingma2013auto}, and \cite{kingma2019introductionvae}.
 
-\section{Motivation}
+\paragraph{Motivation and road map.}
+
+Deep neural networks provide powerful, scalable parametrisations for highly expressive functions. Furthermore, when embedded within probabilistic models, they allow us to move beyond restrictive parametric assumptions while retaining a principled inference procedure. In particular, we will see how to implement the inference ideas developed in the previous chapters, in particular latent variable modelling and variational inference (VI), within a flexible function-approximation framework. Also, the models in this chapter will serve as a critical components in ambitious modelling paradigms introduced in subsequent chapters.
+
+We begin with a concise overview of neural network architectures, including convolutional, auto-encoding and recurrent (and recursive) networks. Then, we will review modern, state-of-the-art, architectures underlying the generative adversarial networks. More than reviewing the architectures in detail, our objective will be to provide a clear understanding of their representational capabilities, modelling assumptions, and training strategies.
+
+The chapter will conclude with the variational autoencoder (VAE), which implements the full variational inference rationale within a deep learning setting. VAEs are  latent-variable models using neural networks to parameterise both the generative model and the variational posterior. This provides a scalable approach to practical approximate Bayesian inference in highly expressive models, and sets the foundation for the more flexible probabilistic constructions.
 
 
-\section{A crash course on neural networks}
+\section{A brief introduction to neural networks}
 
-For completion, we will revisit NNs. 
+A neural network (NN) is a function-approximation model originally inspired by biological neurons. As the theory has developed, however, the analogy with biology has become mostly a metaphor. Being general-interest approximators, NNs have been used in ML for both classification, regression, and more recently for synthetic generation. In all cases, the objective is to approximate an unknown target function $f^{*}$ by learning a parametric mapping
+\[
+y = f(x;\theta),
+\]
+where the parameters $\theta$ are estimated from data. NNs implement a compositional structure, where information processing occurs in stages: processing layers defined by collections of neurons provide increasingly-complex representations that are fed into the next layers. Empirically, this \emph{deep} construction allows NNs to operate directly on raw inputs, learning expressive representations automatically, rather than relying on hand-crafted features.
 
+
+\paragraph{The neuron and activation functions.} The elementary processing unit within a NN is referred to as neuron. Given an input $x = [x_n]_{d=1}^D \in \R^D$, the neuron computes a weighted sum
+\[
+u = \sum_{i=1}^n w_d x_d + b,
+\]
+where $W = [w_d]_{d=1}^D \in \R^D$ are the weights and $b \in \R$ is the bias. Then, the output of the neuron is computed by applying an activation function $f$ to the weighted sum, that is, 
+\[
+h = f(u).
+\]
+A number of different activation functions ensure the universal approximation properties of NNs, and their choice is mainly guided by their affinity to the optimisation strategy, which is given by their monotonicity and differentiability. Fig.~\ref{fig:activation_functions} shows four examples of popular activations functions.
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=0.8\textwidth]{img/week6_activations}
+  \caption{Examples of common activation functions.}
+  \label{fig:activation_functions}
+\end{figure}
+
+Neurons receiving the same input can be combined into a \emph{layer}, which then outputs the stacked collection of neuron outputs into the following layer, thus constituting a multi-layer feedforward NN, where information flows in a single direction. Here, notice that the role of the nonlinear activation function is crucial, the compositions of purely-affine layers would collapse to a single linear transformation without much modelling expressivity. 
+
+We adopt the following notation for the feedforward $l$-layer NN: for $k \in \{1,\dots,l\}$, the output of the $k$-th layer is 
+\begin{equation}
+	h^{(k)} = f^{(k)}\!\left(h^{(k-1)}W^{(k)} + b^{(k)}\right),
+	\qquad h^{(0)} = x,
+\end{equation}
+and the network's final layer output is given by
+\begin{equation}
+	\hat{y} = g\!\left(h^{(l)}U + c\right),
+\end{equation}
+where $g$ denotes the activation function applied at the output layer, defining the output unit. See Fig.~\ref{fig:MLP} for an illustration of an $l$-hidden-layer feedforward NN.
+
+\begin{remark}[Universal approximation property and depth]
+    While a single, sufficiently-wide, hidden layer can approximate a broad class of target functions, this may require an impractically large number of units and can lead to poor generalisation. In practice, it is often preferable to increase \emph{depth} (i.e., the number of layers) rather than width,  with comparatively fewer units. This motivates the study of \emph{deep} architectures.
+\end{remark}
+ 
+\begin{remark}[Parameters and hyperparameters]
+    We will refer to the parameters of the NN as the quantities that are trainable by means of continuous (e.g., gradient-based) optimisation, that is, the weights and the biases. Conversely, the modelling choices that are taken using heuristics or via cross-validation, such as the number of layers and activation functions, will be referred to as hyperparameters. 
+\end{remark}
+
+\begin{figure}[t]
+	\centering
+	\includegraphics[scale=.5]{img/week6_NN.png}
+	\caption{A network of depth $l$ - taken from \protect\cite{goodfellow2016deep}.}
+    \label{fig:MLP}
+\end{figure}
+
+\paragraph{Cost functions and output units.}
+
+NNs can be formulated as probabilistic models with a parameter $\theta$ defining the conditional distribution
+\[
+p(y \mid x; \theta),
+\]
+thus allowing for parameter estimation via maximum likelihood, or equivalently, by minimising the negative log-likelihood. Using a set of observations defining the empirical measure $\hat{p}_{\mathrm{data}}$, the cost function can be expressed as:
+\begin{equation}
+J(\theta) = - \mathbb{E}_{x,y \sim \hat{p}_{\mathrm{data}}}
+\bigl[ \log p_{\mathrm{model}}(y \mid x) \bigr].
+\end{equation}
+
+As a consequence, the choice of {output unit}, which serves as the link between the learnt representations and the space of the discriminative variable $y$, also determines the form of the likelihood and thus the cost function. In practice, the output unit in discriminative modelling is usually set to one of the following choices:
+\begin{enumerate}
+    \item \textbf{Linear output:}
+    \[
+    \hat{y} = h^{(l)}U + c.
+    \]
+    Used for regression. If 
+    \(
+    p(y \mid x) = \mathcal{N}(y \mid \hat{y}, I),
+    \)
+    maximising the log-likelihood is equivalent to minimising the mean squared error.
+
+    \item \textbf{Sigmoid output:}
+    \[
+    \hat{y} = \mathrm{sig}\!\left(h^{(l)}U + c\right).
+    \]
+    Used for binary classification. The model defines a Bernoulli distribution for $y \mid x$, with the output representing $P(y=1 \mid x)$.
+
+    \item \textbf{Softmax output:}
+    \[
+    \hat{y} = \mathrm{softmax}\!\left(h^{(l)}U + c\right),
+    \]
+    which generalises the sigmoid function to the multi-class setting.
+\end{enumerate}
+
+
+\paragraph{Training a neural network.}
+
+Given a dataset $\{(x_n, y_n)\}_{n=1}^N$, the network defines a parametric mapping
+\[
+\hat{y}_n = f(x_n;\theta),
+\]
+and training amounts to minimising an objective of the form
+\[
+J(\theta) = - \frac{1}{N}\sum_{n=1}^N \log p(y_n \mid x_n; \theta).
+\]
+Meaning that 
+\(
+\theta^{*} = \arg\min_{\theta} J(\theta).
+\)
+
+In a feedforward network, training is implemented by means of stochastic gradient descent (SGD), where the gradient is computed in two stages. First, the information flows from the input $x$ to the prediction $\hat{y}$ in a process referred to as \textbf{forward propagation}, where the output, the cost function $J(X,\theta)$, and critically, all the neuron activations are computed. See Algorithm \ref{alg:forward}.
+
+\begin{algorithm}[H]
+	\caption{Forward Propagation}
+    \label{alg:forward}
+	\textbf{Require:} Network depth $l$ \\
+	\textbf{Require:} Weights $W^{(k)}$ and biases $b^{(k)}$, for $k=1,\dots,l$ \\
+	\textbf{Require:} Output parameters $U,c$ and output function $g$ \\
+	\textbf{Require:} Input $x$ and target $y$
+	\begin{algorithmic}[1]
+		\State $h^{(0)} \gets x$
+		\For{$k = 1,\dots,l$}
+			\State $u^{(k)} \gets h^{(k-1)}W^{(k)} + b^{(k)}$
+			\State $h^{(k)} \gets f^{(k)}(u^{(k)})$
+		\EndFor
+		\State $\hat{y} \gets g(h^{(l)}U + c)$
+		\State $J \gets L(\hat{y}, y)$
+	\end{algorithmic}
+\end{algorithm}
+
+The second stage is called \textbf{backpropagation}, where information now flows from the predicted output back to the input, thus propagating the prediction error through the NN in order to find the contribution of each trainable parameter in that error. The gradient of the loss wrt all parameters is computed efficiently via the chain rule, using the stored activations from the forward pass and the gradients of the subsequent layer. See Algorithm \ref{alg:backward}.
+
+\begin{algorithm}[H]
+	\caption{Backward Propagation}
+    \label{alg:backward}
+	\textbf{Require:} Learning rate $\lambda$
+	\begin{algorithmic}[1]
+		\State Perform forward propagation and store intermediate values
+		\State Compute output error signal
+		\State Compute gradients with respect to $U$ and $c$
+		\State Update $U \gets U - \lambda \frac{\partial J}{\partial U}$
+		\State Update $c \gets c - \lambda \frac{\partial J}{\partial c}$
+		\For{$k = l,\dots,1$}
+			\State Propagate error to layer $k$
+			\State Compute $\frac{\partial J}{\partial W^{(k)}}$ and $\frac{\partial J}{\partial b^{(k)}}$
+			\State Update $W^{(k)} \gets W^{(k)} - \lambda \frac{\partial J}{\partial W^{(k)}}$
+			\State Update $b^{(k)} \gets b^{(k)} - \lambda \frac{\partial J}{\partial b^{(k)}}$
+		\EndFor
+	\end{algorithmic}
+\end{algorithm}
+
+In practice, training is performed using mini-batches of data in order to avoid local minima and keep computational/memory overhead at bay, while exploiting GPU parallelism. A full pass through the training set is referred to as an \textbf{epoch}. Increasing the number of epochs typically reduces training error, although excessive training may hinder generalisation due to overfitting due to the fact that NNs in practice are heavily overparametrised.
+
+
+\begin{remark}[Optimisation algorithms]
+SGD's baseline performance is improved through momentum-based updates, which smooth noisy gradients, and adaptive learning-rate methods such as AdaGrad, RMSProp, and Adam. The latter combines momentum with per-parameter adaptive step sizes based on exponentially weighted averages of first and second moments of the gradients, and has become the de facto standard to train NNs.
+\end{remark}
+
+\begin{remark}[Regularisation]
+Generalisation is practically achieved by training large (deep, overparametrised) architectures with appropriate regularisation. A standard approach is $\ell_2$ regularisation (weight decay),
+\[
+\tilde{J}(\theta) = J(\theta) + \frac{\alpha}{2}\|\theta\|_2^2,
+\]
+which penalises large weights and is equivalent to shrinking parameters at each gradient step. Other widely used techniques include \textbf{dropout}, which randomly masks units during training to approximate model averaging, data augmentation and noise injection, and \textbf{early stopping}, where training is halted once validation performance deteriorates.
+\end{remark}
+
+
+
+\paragraph{Classic architectures.} Particular ways of connecting the neurons (and layers) in a NN can be chosen with the objective to capture relevant patterns depending of the nature of the data and the problem at hand.
+
+\textbf{Convolutional neural networks (CNNs)} can be considered as a restriction of fully-connected feedforward NNs, designed for inputs with a spatial structure, such as 1-D signals and 2-D images. A CNN layer applies learnable local convolutional filters and is characterised by the following three key properties:
 \begin{itemize}
-    \item feedforward networks
-    \item brief metion o other architectures
-    \item Back prop
-    \item autoencoders
+  \item \textbf{Sparse connectivity:} each output depends only on a local receptive convolution kernel.
+  \item \textbf{Parameter sharing:} the same kernel is reused across spatial locations, reducing the number of parameters.
+  \item \textbf{Equivariance:} translating the input produces a corresponding translation of the feature map.
 \end{itemize}
 
-\section{Stochastic gradient variational Bayes}
+\missing{Include a diagram of a CNN}
 
-Let us revisit the latent-variable formulation that we have been assuming throughput the module. Consider a dataset $\x = \{x_1,\ldots,x_N\}$ of i.i.d.~samples generated by an unknown generative model with unknown density $p_\theta(x)$. Furthermore, assume that the data generation involves a latent variable $z$, meaning that the generation process consists of sampling $z_n\sim p_\theta(z)$, and then $x_n\sim p_\theta(x \mid z_n)$. 
+\textbf{Recurrent neural networks (RNNs)} are specialised for sequential data $(x^{(1)},\dots,x^{(\tau)})$. They maintain a hidden state that is updated iteratively, sharing parameters across time:
+\begin{equation}
+h^{(t)} = f\!\left(h^{(t-1)}, x^{(t)};\theta\right).
+\end{equation}
+This provides a natural mechanism for modelling temporal dependencies and variable-length inputs. Conceptually, the network can be \emph{unrolled} across time, yielding a deep computation graph in which the same parameters appear at each step.
+
+Training is performed via backpropagation through time (BPTT). In practice, vanilla RNNs can struggle with long-range dependencies due to vanishing and exploding gradients; gated architectures such as LSTMs and GRUs mitigate this by learning when to retain or forget information.
+
+\missing{Include a diagram of an RNN - consider moving this to the Transformer chapter.}
+
+\begin{example}[Convolutional vs fully-connected net on MNIST]
+To illustrate the ability of the convolutional network to incorporate appropriate inductive biases for images, we will implement this network alongside a fully connected (feedforward) network on the classification of the MNIST dataset. For a fair comparison, both networks will feature the roughly the same number of parameters ($\approx 1.2$M parameters). Fig.~\ref{fig:cnn_vs_fc} shows the training and test losses, observe how the feedforward network achieved a lower training error and a saturated test error, thus suggesting overfitting. 
+
+    \begin{figure}[t]
+    \centering
+    \includegraphics[width=0.46\textwidth]{img/week6_FC_MNIST.pdf}
+    \hfil
+    \includegraphics[width=0.46\textwidth]{img/week6_CNN_MNIST.pdf}
+    \caption{CNN vs FC: training dynamics}
+    \label{fig:cnn_vs_fc}
+\end{figure}
+
+\end{example}
+
+
+
+\section{Neural networks for generative modelling}
+
+
+\subsection{Autoencoders} The central idea of this architecture is to learn an identity map $\text{NN}:\R^d\to\R^d$ given by a multi-layer network with one of the hidden layers working as a bottleneck. Choosing $m\ll d$ neurons in the bottleneck layer forces data reconstruction from an $m$-dimensional code. 
+
+AEs consist of two networks: an \textbf{encoder}, which maps the input $x\in\R^d$ to a latent representation
+\[
+z = f_\theta(x) \in\R^m,
+\]
+and a \textbf{decoder}, which reconstructs the input from this representation,
+\[
+r = g_\phi(z) \in\R^d.
+\]
+Training seeks to minimise a reconstruction loss,
+\[
+J(\theta,\phi) = \frac{1}{N}\sum_{i=1}^N L\!\big(x^{(i)}, g_\phi(f_\theta(x^{(i)}))\big),
+\]
+typically mean squared error for continuous data or cross-entropy for binary data.
+
+
+
+\begin{remark}[PCA as a linear autoencoder]
+    When the networks $f_\theta(\cdot)$ and $g_\phi(\cdot)$ are linear maps and the mean squared error loss is considered, the AE recovers the same subspace as principal component analysis (PCA). With non-linear encoders and decoders, autoencoders can learn richer, non-linear representations.
+\end{remark}
+
+
+
+Building on their (non-linear) dimensionality reduction capability, autoencoders are widely used for \emph{representation learning}. The latent code $z$ provides a compact feature representation that can be used as input to subsequent models for supervised or unsupervised tasks. In natural language processing, closely related ideas give rise to \emph{embeddings}, where discrete objects (e.g.\ words) are mapped into continuous vector spaces amenable to statistical modelling.
+
+\begin{remark}[AEs effectiveness to learn representations]
+The learned latent space of an AE  often acquires meaningful geometric structure, where inputs that are similar in the original space tend to map to nearby points in latent space. This induces a smoother, lower-dimensional representation of the data distribution, which facilitates visualisation and improved efficiency in similarity-based, interpretable, models.
+\end{remark}
+
+\begin{remark}[AEs for generative modelling]
+   In theory, AEs could be used for generative modelling by learning the distribution of the code $z$. This should be less challenging than modelling the data distribution $p(x)$ due to the reduced dimensionality of the code. However, since the code is not constrained to have any particular (tractable) distribution, learning and sampling form the code still poses considerable challenges. We will see that this issue can be resolved by imposing a tractable prior on the code, that is the underlying idea behind the variational AEs.
+\end{remark}
+
+
+
+\subsection{Generative adversarial networks (GANs)}
+
+A GAN learns to generate data by training two models in competition: a generator $G(z;\theta^{(g)})$ mapping noise $z$ to synthetic samples, and a discriminator $D(x;\theta^{(d)})$, which outputs the probability that $x$ is a real (and not generated) datapoint.
+
+The standard GAN objective is a minimax game:\footnote{This formulation corresponds to a two-player \emph{zero-sum game}
+in classical game theory: one player seeks to minimise the payoff while
+the other seeks to maximise it.} 
+\[
+\min_{G}\max_{D} V(G,D),
+\]
+where
+\begin{equation}
+    \label{eq:GAN_objective}
+V(G,D) 
+= 
+\mathbb{E}_{x\sim p_{\mathrm{data}}}\big[\log D(x)\big]
++
+\mathbb{E}_{z\sim p(z)}\big[\log(1-D(G(z)))\big].
+\end{equation}
+From the point of view of the discriminator, the first term corresponds to correct classifications of true samples and the second one to correct classification of fake samples. From the point of view of the generator (which only appears in the second term), the reward corresponds to fooling the discriminator into classify fake samples as real ones. At equilibrium, it is expected that the generated distribution matches the data distribution and the discriminator cannot distinguish them; as it will be seen through the following results. See Fig.~\ref{fig:gan_diag} for a diagram.
+
+\begin{figure}[t]
+    \centering
+    \includegraphics[width=0.7\textwidth]{img/week6_gan_diag.pdf}
+    \caption{Diagram of the GAN architecture}
+    \label{fig:gan_diag}
+\end{figure}
+
+\begin{proposition}[Optimal discriminator {\cite{goodfellow2014gan}}]
+    \label{prop:GAN_D}
+For a fixed generator $G$ inducing a distribution $p_g$ on $\cX$ via $x = G(z),\,z \sim p(z)$, the objective in eq.~\eqref{eq:GAN_objective} is maximised pointwise by
+\[
+D^*(x) \;=\; \frac{p_{\mathrm{data}}(x)}{p_{\mathrm{data}}(x) + p_g(x)}.
+\]
+\end{proposition}
+
+\begin{proof}
+Expressing the second term on eq.~\eqref{eq:GAN_objective} as an expectation wrt the generated sample, $V(G,D)$ can be written as a single integral:
+\[
+V(G,D)
+=
+\int \Big( p_{\mathrm{data}}(x)\,\log D(x) \;+\; p_g(x)\,\log(1-D(x)) \Big)\,dx.
+\]
+Assuming $D(\cdot)$ is general enough, this problem can be maximised pointwise. Defining $d := D(x)\in(0,1)$, the integrand can be expressed for a fixed $x$ as
+\[
+f_x(d) := p_{\mathrm{data}}(x)\,\log d + p_g(x)\,\log(1-d), \qquad d\in(0,1).
+\]
+Differentiating wrt $d$ and setting to zero gives
+\[
+f_x'(d) = \frac{p_{\mathrm{data}}(x)}{d} - \frac{p_g(x)}{1-d} = 0
+\quad\Longrightarrow\quad
+d^* = \frac{p_{\mathrm{data}}(x)}{p_{\mathrm{data}}(x)+p_g(x)}.
+\]
+Furthermore, note that $f_x(\cdot)$ is a strictly concave function of $d$ since
+\[
+f_x''(d) = -\frac{p_{\mathrm{data}}(x)}{d^2} - \frac{p_g(x)}{(1-d)^2} < 0.
+\]
+Therefore, $d^*$ is the global maximiser and the optimal discriminator (for fixed $G$) is
+\[
+D^*(x) = \frac{p_{\mathrm{data}}(x)}{p_{\mathrm{data}}(x)+p_g(x)},
+\]
+for all $x$ such that $p_{\mathrm{data}}(x)+p_g(x)>0$.
+\end{proof}
+
+\begin{definition}[Jensen--Shannon divergence]
+Let $P$ and $Q$ be probability distributions that are absolutely continuous
+with respect to a common measure, with densities $p$ and $q$.
+Define the mixture distribution
+\[
+m(x) := \frac12\big(p(x)+q(x)\big).
+\]
+The Jensen--Shannon (JS) divergence between $P$ and $Q$ is
+\[
+\mathrm{JS}(P\|Q)
+:=
+\frac12\,\mathrm{KL}(P\|M)
++
+\frac12\,\mathrm{KL}(Q\|M),
+\]
+where $M$ is the distribution with density $m$, and
+\[
+\mathrm{KL}(P\|M)
+=
+\int p(x)\log\frac{p(x)}{m(x)}\,dx.
+\]
+\end{definition}
+
+\begin{remark}[Jensen--Shannon properties and interpretation]
+The JS divergence induces a metric $\sqrt{\mathrm{JS}(P\|Q)}$, and:
+\begin{itemize}
+    \item $\mathrm{JS}(P\|Q) \ge 0$,
+    \item $\mathrm{JS}(P\|Q)=0$ iff $P=Q$ (a.e.),
+    \item $\mathrm{JS}(P\|Q) \le \log 2$.
+\end{itemize}
+The JS divergence is an extension of the KL divergence which, is i) symmetric, ii) finite even when $P$ and $Q$ have disjoint supports, and iii) measures how far each distribution is from the midpoint mixture $M = \tfrac12(P+Q)$.
+\end{remark}
+
+
+\begin{theorem}[Global optimum of the GAN game {\cite{goodfellow2014gan}}]
+Define the training problem for the generator after the optimal discriminator has been found
+\[
+C(G) := \max_D V(G,D).
+\]
+Then
+\[
+C(G) = -\log 4 \;+\; 2\,\mathrm{JS}\!\big(p_{\mathrm{data}} \,\|\, p_g\big),
+\]
+with global minimum attained if and only if $p_g = p_{\mathrm{data}}$. Furthermore, at the optimal $G^*$
+\[
+C(G^*) = -\log 4
+\quad\text{and}\quad
+D^*(x)=\tfrac12\ \text{for all }x \text{ (on the support).}
+\]
+\end{theorem}
+
+\begin{proof}
+Using the optimal discriminator from Proposition \ref{prop:GAN_D}, we have 
+\begin{align*}
+C(G) &= V(G,D^*) \\
+&= \mathbb{E}_{x\sim p_{\mathrm{data}}}\!\left[\log \frac{p_{\mathrm{data}}(x)}{p_{\mathrm{data}}(x)+p_g(x)}\right]
+\;+\;
+\mathbb{E}_{x\sim p_g}\!\left[\log \frac{p_g(x)}{p_{\mathrm{data}}(x)+p_g(x)}\right].
+\end{align*}
+Define $m(x):=\tfrac12\big(p_{\mathrm{data}}(x)+p_g(x)\big)$ and use the definition of the JS divergence to write
+\begin{align*}
+C(G)
+&=
+\mathbb{E}_{p_{\mathrm{data}}}\!\left[\log \frac{p_{\mathrm{data}}}{m}\right]
++
+\mathbb{E}_{p_g}\!\left[\log \frac{p_g}{m}\right]
+- 2\log 2 \\
+&=
+\mathrm{KL}\!\big(p_{\mathrm{data}}\|m\big) + \mathrm{KL}\!\big(p_g\|m\big) - \log 4\\
+&=
+2\,\mathrm{JS}\!\big(p_{\mathrm{data}}\|p_g\big) - \log 4 .
+\end{align*}
+
+Since $\mathrm{JS}(\cdot\|\cdot)\ge 0$ with equality if and only if the two distributions are equal, the global minimum of $C(G)$ is attained if and only if $p_g=p_{\mathrm{data}}$, and at that point
+\[
+C(G^*)=-\log 4.
+\]
+Lastly, using $G^*$ in Proposition \ref{prop:GAN_D}, we have   
+$D^*(x)=\frac{p_{\mathrm{data}}(x)}{p_{\mathrm{data}}(x)+p_{\mathrm{data}}(x)}=\tfrac12$  for all $x$ on the support.
+\end{proof}
+
+\begin{remark}[Practical convergence of GAN training]
+The results above assume i) an infinite model capacity, and ii) exact optimisation of the discriminator at each step. However, this does \emph{not} imply that gradient-based training of finite neural networks is guaranteed to converge. The GAN objective defines a saddle-point problem, where  simultaneous gradient updated may fail to converge. Though \cite{goodfellow2014gan} proves existence of the global optimum, convergence is mainly controlled by the training algorithm.
+\end{remark}
+
+
+\paragraph{Training in practice.} In practice, the discriminator is not fully optimised at each step. Instead, GANs are trained by alternating stochastic gradient updates: for several steps, the discriminator is updated based on the objective in eq.~\eqref{eq:GAN_objective}, while the generator is trained wrt the surrogate minimisation objective 
+\[
+-\,\mathbb{E}_{z\sim p(z)}[\log D(G(z))].
+\]
+Therefore, training proceeds by alternating gradient ascent in the discriminator
+and gradient descent in the generator. Importantly, the discriminator is \emph{not} trained to full convergence between generator updates, but rather only trained ``near'' optimality by performing a small number (often 1--5) of updates per generator step. 
+
+\begin{example}[DCGAN on MNIST and celeba]
+    We implemented a Deep Convolutional GAN (DCGAN) originally proposed by \cite{radford2016dcgan}. DCGAN implements CNNs tweaks such as strided convolutions, batch normalisation, no fully connected layers,and  specific activations that significantly stabilised GAN training for image generation. Our implementation results on MNIST and celeba datasets, are shown in Figs.~\ref{fig:GAN_MNIST} and \ref{fig:GAN_celeba} respectively. 
+
+    Notice how the generator and discriminator errors are noisy but in average they converge. Also note that the the image generation in both cases provide images of a lower quality than the reference datasets, but recall that these examples are designed to run on a laptop and thus the architecture and dataset is somewhat constrained. 
+
+
+    \begin{figure}[t]
+        \centering
+        \includegraphics[width=0.85\textwidth]{img/week6_GAN_MNIST_samples.pdf}
+        \hfill
+            \includegraphics[width=0.85\textwidth]{img/week6_GAN_MNIST.pdf}
+        \caption{GAN on MNIST}
+        \label{fig:GAN_MNIST}
+    \end{figure}
+    
+    \begin{figure}[t]
+        \centering
+        \includegraphics[width=0.85\textwidth]{img/week6_GAN_celeba_samples.pdf}
+        \hfill
+        \includegraphics[width=0.85\textwidth]{img/week6_celeba_GAN.pdf}
+        \caption{GAN on Celeba}
+        \label{fig:GAN_celeba}
+    \end{figure}
+    
+\end{example}
+
+
+\section{Autoencoding variational Bayes}
+
+We will now revisit the latent-variable formulation assumed throughput the module. Consider a dataset $\x = \{x_1,\ldots,x_N\}$ of i.i.d.~samples generated by an unknown generative model with unknown density $p_\theta(x)$. Furthermore, assume that the data generation involves a latent variable $z$, meaning that the generation process consists of sampling $z_n\sim p_\theta(z)$, and then $x_n\sim p_\theta(x \mid z_n)$. 
 
 We will assume standard regularity conditions, such as differentiability of all the involved densities wrt their arguments and the parameters $\theta$; also note that $\theta$ contains the parameters of all the densities: the prior $p_\theta(z)$ and the likelihood $p_\theta(x \mid z)$. Furthermore, unlike previous sections in the module, we do not make any structural assumptions of the model, in particular, we do not assume the posterior $p_\theta(z \mid x)$ is tractable (as in EM) or that the involved densities are conjugate such as in the mixture models we have seen before.  
 
@@ -32,7 +452,7 @@ Using this very general setup, our goal is threefold:
 These objectives are non-trivial. In particular, we must design methods that are robust to potential intractabilities arising from specific choices of the model densities. Moreover, the models of interest are typically complex and high-dimensional, and can only be trained effectively in the large-data regime.
 
 
-We will follow the standard VI approach seen in the previous lectures, that is, we will consider the variational approximation of the posterior $p_\theta(z \mid x)$ denoted $q_\phi(z \mid x)$, which will be optimised by optimising the ELBO. 
+We will follow the standard VI approach seen in the previous lectures, that is, we will consider the variational approximation of the posterior $p_\theta(z \mid x)$ denoted $q_\phi(z \mid x)$, which will be learned by optimising the ELBO. 
 
 For a single datapoint\footnote{Just like the evidence, the ELBO is additive, i.e., $\elbo(\theta,\phi,x) = \sum_{n=1}^{N} \elbo(\theta,\phi,x_n)$} $x_n$, the ELBO is given by 
 \begin{equation}
@@ -41,7 +461,7 @@ For a single datapoint\footnote{Just like the evidence, the ELBO is additive, i.
 \end{equation}
 
 \begin{remark}[Autoencoder arquitecture]
-    Notice that the general setting defined so far allows for flexible models as we have not assumed any form for the model's likelihood $p_\theta(x_n \mid z)$ and prior $p_\theta(z)$; and the variational approximation $q_\theta(z \mid x_n)$. We are therefore free to choose expressive models for these densities optimised wrt the ELBO in eq.~\eqref{eq:ELBO_single_datapoint}. Observe that this optimisation procedure implies an autoencoding architecture: for a given choice of the prior  $p_\theta(z)$, optimising the ELBO gives i) an encoder model $q_\theta(z \mid x_n)$ that maps the data to the latent space, and then ii) a decoder $p_\theta(x_n \mid z)$ that maps the latent code to the ambient space. The model will then be specified by adopting flexible parametrisations of these densities using neural networks. 
+    Notice that the general setting defined so far allows for flexible and general modelling choices, since we have not assumed any form for the model's likelihood $p_\theta(x_n \mid z)$, prior $p_\theta(z)$, and variational approximation $q_\theta(z \mid x_n)$. We are therefore free to choose expressive models for these densities optimised wrt the ELBO in eq.~\eqref{eq:ELBO_single_datapoint}. Observe that this optimisation procedure implies an autoencoding architecture: for a given choice of the prior  $p_\theta(z)$, optimising the ELBO gives i) an encoder model $q_\theta(z \mid x_n)$ that maps the data to the latent space, and then ii) a decoder $p_\theta(x_n \mid z)$ that maps the latent code to the ambient space. The model will then be specified by adopting flexible parametrisations of these densities using neural networks. 
 \end{remark}
 
 For completeness, we define the following objects. 
@@ -66,19 +486,16 @@ wrt $q_\theta(z \mid x_n)$, recall that its gradients can be approximated using 
 \end{equation}
 where $z^{(l)}\sim q_\theta(z \mid x_n)$. However, it has been shown that this estimator exhibits a large variance and is us this unsuitable for our setting.
 
-To introduce a practical estimator of the ELBO and its gradients, we adopt two main considerations that will allow us to calculate each term in eq.~\eqref{eq:ELBO_single_datapoint}. For the first term (the KL divergence), recall that the general setting defined so far allows for flexible models for both the prior over latent $p_\theta(z)$ and also the likelihood $p_\theta(x \mid z)$. Since the latent variable in this formulation is not tied to have any particular physical interpretation, this generality might be seen as a redundant modelling choice: considering a simple model for the prior $p_\theta(z)$ should not be a limitation to design an expressive model $p_\theta(x)$, since the required flexibility can be represented through the likelihood $p_\theta(x \mid z)$. As a consequence, we will assume we are free to chose a simple---and thus interpretable, easy to sample---prior $p_\theta(z)$. 
+To introduce a practical estimator of the ELBO and its gradients, we adopt two main considerations that will allow us to calculate eq.~\eqref{eq:ELBO_single_datapoint}. For the first term (the KL divergence), recall that the general setting defined so far allows for flexible models for both the prior over latent $p_\theta(z)$ and also the likelihood $p_\theta(x \mid z)$. Since the latent variable in this formulation is not tied to have any particular physical interpretation, this generality might be seen as a redundant modelling choice: considering a simple model for the prior $p_\theta(z)$ should not be a limitation to design an expressive model $p_\theta(x)$, since the required flexibility can be represented through the likelihood $p_\theta(x \mid z)$. As a consequence, we will assume we are free to chose a simple---and thus interpretable, easy to sample---prior $p_\theta(z)$. 
 
 Given such a choice for the prior of the latent variable, the choice of the variational approximation $q_\phi(z \mid x_n)$ can also be done with tractability of the KL term in mind. Note that $q_\phi(z \mid x_n)$ is not a component of the generative model, but rather of the approximation. 
 
-\begin{remark}
-    The consideration above suggests that we should choose both $p_\theta(z)$ and $q_\phi(z \mid x_n)$  such that the KL between them is tractable. Note that this does not restrict the modelling generality of the decoder model, which can be chosen to have a tractable form, e.g., Gaussian or Bernoulli, with parameters controlled by a neural network.
+\begin{remark}[Tractable KL term]
+    \label{rem:tractable_KL}
+    The consideration above suggests that, in some cases, we can choose both $p_\theta(z)$ and $q_\phi(z \mid x_n)$  such that the KL between them is tractable. Note that this does not restrict the modelling generality of the decoder model, which can be chosen to have a tractable form, e.g., Gaussian or Bernoulli, with parameters controlled by a neural network.
 \end{remark}
 
-A second consideration is pertains the second term of eq.~\eqref{eq:ELBO_single_datapoint}, referred to as the \emph{expected reconstruction error} given by 
-\begin{equation}
-    \mathbb{E}_{q_\theta(z \mid x_n)}\left[\log p_\theta(x_n \mid z)\right].
-\end{equation}
-Rather than performing a Monte Carlo approximation of this term by sampling directly from the decoder $z^{(l)}\sim q_\theta(z \mid x_n)$ as stated above, we will use the reparametrisation trick. That is, we will assume that the sample $z^{(l)}$ can be expressed as s deterministic transformation of an auxiliary variable $\epsilon\in\R,\,\sim p(\epsilon)$ through the function
+A second consideration is to perform a Monte Carlo approximation of the loss in eq.~\eqref{eq:ELBO_single_datapoint} bypassing direct sampling from the decoder $z^{(l)}\sim q_\theta(z \mid x_n)$ as stated above, using the reparametrisation trick. That is, we will assume that the sample $z^{(l)}$ can be expressed as deterministic transformation of an auxiliary variable $\epsilon\in\R,\,\sim p(\epsilon)$ through the function
 \begin{align}
     g_\phi: \R \times \cX &\to \cZ\\
     (\epsilon,x) &\mapsto z = g_\phi(\epsilon,x).    
@@ -101,7 +518,7 @@ where $ z = g_\phi(\epsilon,x)$.
 
 \begin{remark}
 The introduction of the reparameterisation trick in this context has several key advantages. 
-First, the resulting gradient estimator is unbiased. 
+First, the resulting gradient estimator is unbiased \cite{kingma2019introductionvae}. 
 Second, it typically has significantly lower variance than estimators that differentiate through the sampling distribution itself, because the randomness is isolated in an auxiliary variable and gradients are taken through a deterministic mapping---see Fig.~\ref{fig:rep_trick}. 
 Third, by disentangling the source of randomness from the variational parameters, the objective becomes directly differentiable with respect to $\phi$, allowing us to use standard automatic differentiation and backpropagation.
 \end{remark}
@@ -114,9 +531,11 @@ Third, by disentangling the source of randomness from the variational parameters
   trim=2.5cm 10cm 2.5cm 6.5cm,
   clip
 ]{img/week6_rep_trick_book.pdf}
-    \caption{Illustration of the reparapetrisation trick. Taken from \protect\cite{kingma2019introductionvae}}
+    \caption{Illustration of the reparametrisation trick. Taken from \protect\cite{kingma2019introductionvae}}
     \label{fig:rep_trick}
 \end{figure}
+
+\missing{Replace Fig.~\ref{fig:rep_trick} by own diagram}
 
 \begin{remark}
 A natural question concerns the choice of the mapping $g_\phi$. 
@@ -130,18 +549,14 @@ In other words, $q_\phi(\cdot \mid x)$ is the pushforward of $p(\epsilon)$ under
 
 This leaves two modelling choices: the base distribution $p(\epsilon)$ and the transformation $g_\phi$. 
 In practice, $p(\epsilon)$ is typically chosen to be simple (e.g.\ a standard Gaussian), and modelling flexibility is introduced through the parameterised map $g_\phi$. 
-For example, if $q_\phi(z \mid x)$ is Gaussian with mean $\mu_\phi(x)$ and diagonal covariance $\Sigma_\phi(x)$, one may take
+For example, if $q_\phi(z \mid x)$ is Gaussian with mean $\mu_\phi(x)$ and diagonal covariance $\Sigma_\phi(x)$, we can do
 \[
 g_\phi(x,\epsilon) = \mu_\phi(x) + \Sigma_\phi(x)^{1/2} \epsilon.
 \]
-More expressive variational families can be obtained by choosing richer transformations $g_\phi$, as in normalising flows.
-
-Thus, in most applications, we fix $p(\epsilon)$ to be simple and design $g_\phi$ so that it is sufficiently expressive while remaining differentiable and computationally tractable.
+Since more expressive variational families can be obtained by choosing richer transformations $g_\phi$, in practice $p(\epsilon)$ can be fixed and then design $g_\phi$ to be sufficiently expressive while remaining differentiable and computationally tractable.
 \end{remark}
 
-\section{Variational Autoencoder}
-
-We are now able to introduce a particular architecture for the model. Let us consider a fixed (i.e., parameter-free) prior for the latent variable given by an isotropic multivariate Gaussian 
+\paragraph{The variational autoencoder.} We are now able to introduce a particular architecture to implement the inference procedure described above. Let us consider a fixed (i.e., parameter-free) prior for the latent variable given by an isotropic multivariate Gaussian 
 \begin{equation}
     p_\theta(z) = \cN(z;0,I).
 \end{equation} 
@@ -151,9 +566,9 @@ Furthermore, we will model the decoder $p_\theta(x \mid z)$ as a multivariate Ga
     q_\phi(z \mid x) = \cN(z \mid \mu, \sigma^2 I),
     \label{eq:VAE_encoder}
 \end{equation}
-were the variational parameters  $\mu, \sigma^2$ are also the output of a neural network taking $x$ as input. 
+were the variational parameters  $\mu, \sigma^2$ are also controlled by a neural network taking $x$ as input. 
 
-Note that in this case implementing the reparametrisation trick is straightforward due to the Gaussian assumption for the encoder: sampling $z\sim\cN(0,I)$, and assigning $z = g_\phi(x, \epsilon) = \mu + \sigma\epsilon$ we obtain samples from eq.~\eqref{eq:VAE_encoder}. Since in this case both the prior $p_\theta(z)$ and the enconder $q_\phi(z \mid x)$ are Gaussian, the KL term in the ELBO can be computed explicitely, meaning that only the \emph{expected reconstruction error} needs to be approximated via Monte Carlo. 
+Note that in this case implementing the reparametrisation trick is straightforward due to the Gaussian assumption for the encoder: sampling $z\sim\cN(0,I)$, and assigning $z = g_\phi(x, \epsilon) = \mu + \sigma\epsilon$ we obtain samples from eq.~\eqref{eq:VAE_encoder}. Since in this case both the prior $p_\theta(z)$ and the enconder $q_\phi(z \mid x)$ are Gaussian, the KL term in the ELBO can be computed explicitely, meaning that only the \emph{expected reconstruction error} needs to be approximated via Monte Carlo---see Remark  \ref{rem:tractable_KL}. 
 
 The resulting objective for a single datapoint $x_n$ is
 \begin{equation}
@@ -173,9 +588,19 @@ z_n
 \end{equation}
 where $z_n^{(l)} =\mu_\phi(x_n) + \sigma_\phi(x_n)\epsilon^{(l)}$ and $\epsilon^{(l)} \sim \mathcal{N}(0,I)$.
 
+\begin{example}[VAE on the MNIST dataset]
+    We implemented a VAE with the architecture described above on the MNIST dataset. The model was trained over 30 epochs and the results are shown in Fig.~\ref{fig:VAE_MNIST}. Observe the monotonic behaviour of the loss and the reasonable synthetic digits. 
 
-\section{Generative Adversarial Networks}
+        \begin{figure}[t]
+        \centering
+        \includegraphics[width=0.35\textwidth]{img/week6_VAE_MNIST_sample.png}
+        \hfill
+        \includegraphics[width=0.55\textwidth]{img/week6_MNIST_VAE.pdf}
+        \caption{VAE on MNIST}
+        \label{fig:VAE_MNIST}
+    \end{figure}
 
-\section{Transformers}
 
-\section*{Exercises}
+    
+\end{example}
+%\section*{Exercises}
