@@ -1,0 +1,140 @@
+\chapter{Transformers}
+
+
+\section{Overview}
+Let us consider a sequence of token representations
+\[
+x_1, x_2, \dots, x_N \in\R^D
+\]
+concatenated as a column-wise matrix
+\[
+X = [x_1, x_2, \dots, x_N]^\top \in \mathbb{R}^{D \times N}.
+\]
+
+The representations $x_1, x_2, \dots, x_N \in\R^D$ can be fixed such as a one-hot encoding of symbols, a pre-learned representation such as word2vec, or a learnable representation to be trained alongside the rest of the model, and apply to any type of data that can be \emph{tokenised}. 
+
+
+\begin{figure}[t]
+    \centering
+    \includegraphics[width=0.9\textwidth]{img/week7_Transformer.pdf}
+    \caption{Diagram of the transformer blocks}
+    \label{fig:Transformer_blocks}
+\end{figure}
+
+
+We would like to construct a set of representations
+\[
+z_1, z_2, \dots, z_N,
+\]
+where $z_n$ conveys \emph{contextualized} information of the entire sequence as opposed to the \emph{isolated} representation $x_n$. For each token coordinate, this can be achieved by implementing a mapping of the form 
+\[
+z_n = f(x_n, x_1, \dots, x_N),
+\]
+where the function $f$ is the same for all positions (parameter sharing) and the output remains in $\mathbb{R}^d$.
+
+\paragraph{Attention.} This operation can be implemented via an attention mechanism, a particular instance of this is defined as follows. For the token embeddings $X$, let us define
+\[
+\begin{aligned}
+\text{Query:} \quad & Q = XW_Q \\
+\text{Key:}   \quad & K = XW_K \\
+\text{Value:} \quad & V = XW_V,
+\end{aligned}
+\]
+where $W_Q, W_K \in \R^{D \times D_k}$
+and $W_V \in \R^{D \times D_v}$ are learnable weight matrices.
+
+The \emph{scaled dot-product self-attention} of $X$ is defined as
+\[
+\mathrm{Att}(X)
+\defeq
+\mathrm{softmax}\!\left(
+\frac{QK^\top}{\sqrt{D_k}}
+\right)V,
+\]
+giving the contextualised representation by 
+\[
+Z = \mathrm{Att}(X).\]
+
+The attention matrix $QK^\top \in \mathbb{R}^{N \times N}$ contains
+pairwise similarity scores between all tokens.
+After scaling by $\sqrt{D_k}$ and applying the row-wise softmax,
+these scores become attention weights, so that each output
+representation is a convex combination of the value vectors.
+
+Intuitively, an implicit underlying assumption to construct the contextual representation is that different tokens should be able to depend on different parts of the sequence. The token at position $n$ may pay attention to the token in position $n'$, while another token may need to focus on another part of the sequence.
+
+Contextualisation should not be fixed in advance, but rather content-dependent: each token must selectively aggregate
+information from the rest of the sequence according to the learning strategy (to be defined later). The attention mechanism achieves this by producing, for each token, a learned, data-dependent weighted combination of
+the input representations $x_1, \dots, x_N$.
+
+\paragraph{MLP stage.}
+Observe that, after the attention operation, the representation is still linear in the token values.  To increase the expressivity of the model, a nonlinear transformation can be applied to the attention output. Intuitively, this transformation should be the same for each token. 
+
+To extract relevant nonlinear feature representations, this transformation can be implemented as a position-wise multilayer perceptron (MLP), again with learnable (and shared) parameters. That is, 
+\begin{equation}
+    z_n \mapsto \text{MLP}_\theta(z_n)\,, \forall n=1,\ldots,N.
+\end{equation}
+
+\paragraph{Residual connection.} Rather than requiring each Transformer block to construct an entirely new representation from scratch, we can facilitate feature extraction
+by modelling the updated representation as an additive refinement of the previous one. This is achieved by implementing residual connections both in the attention and MLP stages, thus guiding the expressivity of each component to what needs to be adjusted rather than relearned.
+
+Additionally, this residual formulation not only encourages incremental (and thus stable) representation learning, but also improves optimisation by preserving a direct path for information and gradients across depth.
+
+\paragraph{Normalisation.} Lastly, as the learnt representations will propagate through multiple blocks, their magnitude can progressively vanish/explode and thus result in insensitive/unstable optimisation dynamics. Furthermore, with the aim to preserve the architecture of the attention block across layers, it is required that successive layers operate on well-conditioned inputs of similar magnitued.
+
+This can be ensured by introducing a normalisation step that re-centres and re-scales activations at each position. That is, 
+
+\begin{equation}
+    \bar{x}_{d,n} \defeq [\mathrm{LayerNorm}(X)]_{d,n} = \gamma_d \frac{h_{d,n} - \mean{x_n}}{\sqrt{\var{x_n} + \varepsilon}} + \beta_d,
+\end{equation}
+where 
+\[
+\mean{x_n} = \frac{1}{D}\sum_{d=1}^{D} \mean{x_{d,n}}; \quad \var{x_n} = \frac{1}{D}\sum_{k=1}^{D} \big(x_{d,n} - \mean{x_{n}}\big)^2,
+\]
+$\gamma_d, \beta_d \in \R$ are learnable scale and shift parameters, and $\varepsilon > 0$ is a small constant introduced for numerical
+stability.
+
+
+
+
+\begin{remark}[Architecture within each block]
+    The attention block operates in two stages: first, attention performs global information exchange across tokens, and the MLP performs local nonlinear feature refinement. After each of these stages a residual connection and normalisation is included both to aid the feature extraction and make training more stable.
+\end{remark}
+
+\begin{remark}[How are the parameters learnt?]
+    So far, it may make no sense how all the parameters introduced will be learnt so that they take the role that we assigned to them. Recall the the Transformer is a processing stage taking part in a larger architecture usually used to address and end-to-end task such as a next-word predictor or a object recognition network. Therefore, all the parameters will be learnt alongside the rest of the architecture to solve the given task.  
+\end{remark}
+
+
+
+\subsection{The attention module}
+
+
+
+\paragraph{Attention Module (General Form).}
+Let $Q = \{q_i\}_{i=1}^{n_q}$ be a set of queries,
+$K = \{k_j\}_{j=1}^{n_k}$ a set of keys,
+and $V = \{v_j\}_{j=1}^{n_k}$ a set of values,
+with $q_i, k_j \in \mathbb{R}^{d}$ and
+$v_j \in \mathbb{R}^{d_v}$.
+
+An attention module is a mapping that produces, for each query $q_i$,
+a weighted combination of the values:
+\[
+\mathrm{Att}(q_i, K, V)
+=
+\sum_{j=1}^{n_k} \alpha_{ij} v_j,
+\]
+where the attention weights $\alpha_{ij}$ satisfy
+\[
+\alpha_{ij}
+=
+\frac{\exp\big(s(q_i,k_j)\big)}
+{\sum_{\ell=1}^{n_k} \exp\big(s(q_i,k_\ell)\big)}.
+\]
+
+Here $s : \mathbb{R}^d \times \mathbb{R}^d \to \mathbb{R}$
+is a compatibility (or scoring) function measuring the relevance
+of key $k_j$ to query $q_i$.
+Thus, attention computes a data-dependent convex combination of values,
+with weights determined by query–key similarity.
