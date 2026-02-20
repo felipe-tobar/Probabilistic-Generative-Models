@@ -1,7 +1,140 @@
 \chapter{Transformers}
 
+\textbf{NB:} This is based on \cite{turner2023introduction}, \cite{vaswani2017attention}, and \cite{hewitt2025coms4705}.
 
-\section{Overview}
+
+\section{Probabilistic modelling of discrete sequences}
+Many problems in machine learning can be formulated as \emph{sequence modelling}: given an ordered collection of discrete symbols
+\[
+x_{1:N} = (x_1, x_2, \dots, x_N),
+\]
+where each $x_n$ takes values in a finite (or countable) vocabulary $\mathcal{V}$, we seek to model the structure governing their arrangement. Importantly, we make no prior assumption that elements of $\mathcal{V}$ possess a natural numerical representation; they are abstract symbols. The problem is therefore inherently combinatorial. A principled approach is probabilistic: we posit a joint distribution over sequences and write, by the chain rule,
+\[
+p(x_{1:N}) = \prod_{n=1}^{N} p(x_n \mid x_{1:n-1}),
+\]
+thereby reducing sequence modelling to repeated next-symbol prediction.
+
+The full factorisation above is exact but generally intractable, as the conditioning context $x_{1:n-1}$ grows with $n$. A classical simplification is the $k$-th order Markov assumption, which postulates that the conditional distribution depends only on the previous $k$ symbols:
+\[
+p(x_n \mid x_{1:n-1}) \approx p(x_n \mid x_{n-k:n-1}).
+\]
+This yields the \emph{$k$-gram factorisation}
+\[
+p(x_{1:N}) \approx \prod_{n=1}^{N} p(x_n \mid x_{n-k:n-1}),
+\]
+where each conditional probability is estimated from empirical counts.
+
+While conceptually simple and statistically well-founded, this approach suffers from a fundamental scalability limitation. The number of possible conditioning contexts grows as $|\mathcal{V}|^{\,k}$, so the number of parameters required to specify all conditionals scales on the order of
+\[
+|\mathcal{V}|^{\,k+1}.
+\]
+For even moderate vocabulary sizes and context lengths, this leads to severe data sparsity and an exponential explosion in dimensionality. Consequently, purely counting-based $k$-gram models become statistically and computationally infeasible as $k$ increases — a direct manifestation of the curse of dimensionality.
+
+
+\begin{remark}
+The fundamental limitation of $k$-gram models is not merely statistical sparsity, but the absence of structural generalisation. Each conditioning context $x_{n-k:n-1}$ is treated as an atomic configuration, unrelated to any other. Consequently, two contexts that differ in only one symbol — or that are semantically similar — correspond to entirely distinct parameters. The model does not exploit any notion of similarity, compositionality, or shared structure among symbols or contexts. In this sense, the curse of dimensionality arises not only from combinatorial growth, but from a failure to impose inductive bias.
+\end{remark}
+
+\paragraph{Neural Language Models.}
+A natural remedy is to introduce a parametric model that shares statistical strength across related contexts. Concretely, we replace the tabulated conditional probabilities with a parameterised family
+\[
+p_\theta(x_n \mid x_{1:n-1}),
+\]
+where $\theta$ denotes a finite-dimensional set of parameters. To enable generalisation across symbols, we introduce a representation map (or embedding)
+\[
+e : \mathcal{V} \to \mathbb{R}^d,
+\]
+which assigns to each discrete token a vector in a continuous space. Contexts can then be represented through compositions of these embeddings, and the next-token distribution is defined via a parametric function, for example
+\[
+p_\theta(x_n = v \mid x_{1:n-1})
+=
+\frac{\exp\big( s_\theta(v, x_{1:n-1}) \big)}
+{\sum_{v' \in \mathcal{V}} \exp\big( s_\theta(v', x_{1:n-1}) \big)},
+\]
+where $s_\theta$ is a learnable scoring function.
+
+The parameters $\theta$, including the embedding map $e$, are estimated by maximising the log-likelihood of observed sequences,
+\[
+\mathcal{L}(\theta)
+=
+\sum_{n=1}^{N}
+\log p_\theta(x_n \mid x_{1:n-1}),
+\]
+thereby learning representations that capture statistical regularities of the sequence distribution. In this manner, combinatorial enumeration is replaced by geometric structure and parameter sharing in a continuous space.
+
+A simple instantiation of the parametric framework replaces the $k$-gram table by a learnable scoring function acting on a fixed window of embeddings. Let
+\[
+z_n = \big(e(x_{n-k}), \dots, e(x_{n-1})\big) \in \mathbb{R}^{kd}
+\]
+denote the concatenation of the previous $k$ token representations. A neural language model defines
+\[
+p_\theta(x_n = v \mid x_{n-k:n-1})
+=
+\frac{\exp\big( s_\theta(v, z_n) \big)}
+{\sum_{v' \in \mathcal{V}} \exp\big( s_\theta(v', z_n) \big)},
+\]
+where $s_\theta$ is implemented by a feedforward network.
+
+In this formulation, statistical strength is shared across contexts through the embedding map $e$ and the parameters of $s_\theta$. Similar contexts induce similar feature vectors $z_n$, allowing generalisation beyond observed $k$-tuples. The exponential dependence on $|\mathcal{V}|^k$ is replaced by a parameter count that grows linearly with the embedding dimension and network width.
+
+\begin{remark}
+The introduction of distributed representations resolves the combinatorial explosion of parameters and enables geometric notions of similarity. However, the model remains constrained by a fixed context window of size $k$. All information outside this window is discarded, irrespective of its semantic relevance. Thus, while the dimensionality problem has been mitigated, a new limitation emerges: memory is finite and rigidly truncated. Long-range dependencies cannot be captured unless $k$ is increased, reintroducing computational and statistical burdens.
+\end{remark}
+
+\paragraph{Recurrent neural networks.}
+
+To overcome the rigidity of fixed context windows, we seek a mechanism that allows the effective conditioning context to grow with the sequence length without incurring exponential parameter growth. Recurrent neural networks (RNNs) achieve this by introducing a latent state variable $h_n \in \mathbb{R}^d$ that evolves recursively according to
+\[
+h_n = f_\theta(h_{n-1}, e(x_n)),
+\]
+where $f_\theta$ is a learnable nonlinear transformation. The next-token distribution is then defined as
+\[
+p_\theta(x_{n+1} \mid x_{1:n})
+=
+\mathrm{Softmax}\big( W h_n \big).
+\]
+
+Conceptually, the hidden state $h_n$ serves as a summary of the entire past $x_{1:n}$. The Markov assumption is shifted from the observable sequence to the latent state: conditioned on $h_n$, the future is independent of the past. In principle, this construction permits dependencies of arbitrary length, since the state is updated at every time step and may carry forward relevant information indefinitely.
+
+Intuitively, recurrence replaces a fixed sliding window with a learned compression mechanism. Rather than remembering the last $k$ symbols explicitly, the network learns what to retain, transform, or discard in its hidden state as the sequence unfolds. The model thus trades combinatorial context enumeration for dynamical state evolution.
+
+
+\begin{remark}
+Recurrent models remove the rigid truncation imposed by fixed context windows: in principle, the hidden state $h_n$ may encode information from arbitrarily far in the past. However, this flexibility comes at a structural cost. All past information must be compressed into a single fixed-dimensional vector at each time step. As the sequence length grows, the state must simultaneously preserve long-range dependencies while remaining expressive enough to incorporate new inputs. This compression induces both representational and optimisation difficulties: information may be progressively diluted, and gradients must propagate through long chains of nonlinear transformations.
+
+Thus, although recurrence resolves the limitation of finite context, it introduces a new bottleneck — the requirement that the entire past be summarised in a single evolving state.
+\end{remark}
+
+This observation suggests a different perspective on sequence modelling. Rather than compressing the past into a single vector, one may instead retain intermediate representations and allow the model to access them directly when needed. Such a mechanism replaces sequential state compression with content-based memory access, leading naturally to attention mechanisms.
+
+\paragraph{Attention as adaptive memory access.}
+
+Attention mechanisms were first introduced as an augmentation of recurrent encoder–decoder architectures. Instead of relying solely on the final hidden state as a compressed representation of the input sequence, the model retains the full collection of intermediate states $\{h_m\}_{m=1}^N$ and constructs a context vector dynamically at each decoding step. Concretely, given a query state $q_n$ (typically derived from the current decoder state), attention defines weights
+\[
+\alpha_{nm}
+=
+\frac{\exp\big( a_\theta(q_n, h_m) \big)}
+{\sum_{j=1}^{N} \exp\big( a_\theta(q_n, h_j) \big)},
+\]
+where $a_\theta$ is a learnable compatibility function. The resulting context vector is a weighted combination
+\[
+c_n = \sum_{m=1}^{N} \alpha_{nm} \, h_m.
+\]
+The next-token distribution is then conditioned not only on the recurrent state, but also on this adaptively constructed summary:
+\[
+p_\theta(x_{n+1} \mid x_{1:n})
+=
+\mathrm{Softmax}\big( W [h_n, c_n] \big).
+\]
+
+In this formulation, memory is no longer compressed into a single evolving vector. Instead, the model performs content-based addressing over previously computed representations, allowing it to retrieve information selectively rather than propagate it solely through recursive state transitions.
+
+\begin{remark}
+Once attention provides direct access to the collection of past representations $\{h_m\}$, the necessity of strict temporal recursion becomes less evident. If each position can attend to all others through learned compatibility scores, sequence modelling may be reformulated as the iterative refinement of a set of representations via pairwise interactions, rather than as the propagation of a single hidden state through time. In this perspective, recurrence ceases to be fundamental. This observation leads to attention-only architectures, in which recursion is removed entirely and dependencies are modelled through stacked layers of self-attention.
+\end{remark}
+
+
+\section{Overview of the Transformer architecture}
 Let us consider a sequence of token representations
 \[
 x_1, x_2, \dots, x_N \in\R^D
@@ -95,6 +228,29 @@ $\gamma_d, \beta_d \in \R$ are learnable scale and shift parameters, and $\varep
 stability.
 
 
+\paragraph{Temporal (positional) encoding.}
+
+
+With the components presented so far, the Transformer block is
+invariant to permutations of the input tokens. This presents a clear
+limitation in practice, since the relationships among tokens
+(modelled through attention) depend not only on their content, but
+also on their order.
+
+For instance, consider the sentences
+\emph{``the dog chased the cat''} and
+\emph{``the cat chased the dog''}.
+The same tokens appear in both cases, yet their positions determine
+who is the agent and who is the object, leading to entirely different
+meanings. A permutation-invariant mechanism would be unable to
+distinguish between such sequences.
+
+To encode temporal structure, we therefore augment each token representation with a position-dependent vector before applying attention, allowing the model to incorporate ordering information while preserving its parallel architecture. One alternative, is to simply add a function of the token position to the token representation
+$x_n$ with
+\[
+\tilde{x}_n = x_n + p_n,
+\]
+where $p_n$ is a position-dependent function. This function can be fixed, such as a vector of sinusoids of different frequencies and phases encoding the token's position as done by \cite{vaswani2017attention}, or a free parameter that is learnt with the rest of the model. 
 
 
 \begin{remark}[Architecture within each block]
@@ -106,8 +262,17 @@ stability.
 \end{remark}
 
 
+\begin{figure}[t]
+    \centering
+    \includegraphics[width=0.95\textwidth]{img/week7_Transformer_block.pdf}
+    \caption{Diagram of a single transformer block, identifying attention, residual connections, normalisation and MLP stages.}
+    \label{fig:Transformer_block}
+\end{figure}
 
-\subsection{The attention module}
+
+
+\section{The Attention Mechanism in Detail}
+
 
 
 
@@ -138,3 +303,51 @@ is a compatibility (or scoring) function measuring the relevance
 of key $k_j$ to query $q_i$.
 Thus, attention computes a data-dependent convex combination of values,
 with weights determined by query–key similarity.
+
+\begin{itemize}
+    \item \textbf{Self-Attention and Cross-Attention.}
+    Self-attention contextualises tokens within a sequence, while
+    cross-attention conditions one sequence on another.
+
+    \item \textbf{Multi-Head Attention.}
+    Multiple attention heads operate in parallel over learned subspaces,
+    increasing representational flexibility.
+
+    \item \textbf{Attention as Kernel Smoothing.}
+    Attention can be interpreted as a data-dependent kernel operator,
+    where softmax-normalised similarities define adaptive weights.
+\end{itemize}
+
+\section{Transformer Architectures}
+
+\begin{itemize}
+    \item \textbf{Encoder-Only Architectures.}
+    Bidirectional self-attention models designed for representation
+    learning (e.g.\ masked language modelling).
+
+    \item \textbf{Decoder-Only Architectures.}
+    Causal self-attention models for autoregressive generation.
+
+    \item \textbf{Encoder--Decoder Architectures.}
+    Hybrid models combining bidirectional encoding with conditional
+    decoding, commonly used in sequence-to-sequence tasks.
+\end{itemize}
+
+
+\section{Mathematical Perspectives on Transformers}
+
+\begin{itemize}
+    \item \textbf{Attention as a Data-Dependent Linear Operator.}
+    Self-attention applies an adaptive $N \times N$ operator whose
+    entries depend on the input sequence.
+
+    \item \textbf{Residual Networks as Discrete Dynamical Systems.}
+    Stacked Transformer blocks with residual connections resemble
+    iterative refinement or discrete flow dynamics.
+
+    \item \textbf{Computational Complexity and Scaling.}
+    The quadratic complexity of attention in sequence length motivates
+    sparse and approximate variants for long-context modelling.
+\end{itemize}
+
+

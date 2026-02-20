@@ -446,22 +446,40 @@ Using this very general setup, our goal is threefold:
 \begin{enumerate}
     \item to obtain an efficient maximum likelihood estimator for $\theta$;
     \item to construct an efficient approximation of the posterior distribution $p_\theta(z \mid x)$;
-    \item to approximate the marginal distribution $p_\theta(x)$ in a way that allows us to synthesise new data directly.
+    \item to develop a methodology to directly synthesise new data distributed according to $p_\theta(x)$.
 \end{enumerate}
 
 These objectives are non-trivial. In particular, we must design methods that are robust to potential intractabilities arising from specific choices of the model densities. Moreover, the models of interest are typically complex and high-dimensional, and can only be trained effectively in the large-data regime.
 
 
-We will follow the standard VI approach seen in the previous lectures, that is, we will consider the variational approximation of the posterior $p_\theta(z \mid x)$ denoted $q_\phi(z \mid x)$, which will be learned by optimising the ELBO. 
+We will follow the standard VI approach seen in the previous chapters, that is, we will consider the variational approximation of the posterior $p_\theta(z \mid x)$ denoted $q_\phi(z \mid x)$, which will be learned by optimising the ELBO. 
 
-For a single datapoint\footnote{Just like the evidence, the ELBO is additive, i.e., $\elbo(\theta,\phi,x) = \sum_{n=1}^{N} \elbo(\theta,\phi,x_n)$} $x_n$, the ELBO is given by 
+For a single datapoint
+\footnote{
+ If
+\(
+p_\theta(x_{1:N}, z_{1:N})
+=
+\prod_{n=1}^N p_\theta(x_n, z_n)
+\)
+and
+\(
+q_\phi(z_{1:N} \mid x_{1:N})
+=
+\prod_{n=1}^N q_\phi(z_n \mid x_n),
+\)
+then, just like the evidence, the ELBO is additive and thus factorises, i.e., $\elbo(\theta,\phi,x) = \sum_{n=1}^{N} \elbo(\theta,\phi,x_n)$} $x_n$, the ELBO is given by 
 \begin{equation}
     \elbo(\theta,\phi,x_n) = -\KL{q_\phi(z \mid x_n)}{p_\theta(z)} + \mathbb{E}_{q_\phi(z \mid x_n)}\left[\log p_\theta(x_n \mid z)\right].
     \label{eq:ELBO_single_datapoint}
 \end{equation}
 
+\begin{remark}[Generality of the formulation]
+Notice that the general setting defined so far allows for flexible and general modelling choices, since we have not assumed any form for the model's likelihood $p_\theta(x_n \mid z)$, prior $p_\theta(z)$, and variational approximation $q_\phi(z \mid x_n)$. We are therefore free to choose expressive models for these densities optimised wrt the ELBO in eq.~\eqref{eq:ELBO_single_datapoint}. 
+\end{remark}
+
 \begin{remark}[Autoencoder architecture]
-    Notice that the general setting defined so far allows for flexible and general modelling choices, since we have not assumed any form for the model's likelihood $p_\theta(x_n \mid z)$, prior $p_\theta(z)$, and variational approximation $q_\phi(z \mid x_n)$. We are therefore free to choose expressive models for these densities optimised wrt the ELBO in eq.~\eqref{eq:ELBO_single_datapoint}. Observe that this optimisation procedure implies an autoencoding architecture: for a given choice of the prior  $p_\theta(z)$, optimising the ELBO gives i) an encoder model $q_\phi(z \mid x_n)$ that maps the data to the latent space, and then ii) a decoder $p_\theta(x_n \mid z)$ that maps the latent code to the ambient space. The model will then be specified by adopting flexible parametrisations of these densities using neural networks. 
+Observe that this optimisation procedure implies an autoencoding architecture: for a given choice of the prior  $p_\theta(z)$, optimising the ELBO gives i) an encoder model $q_\phi(z \mid x_n)$ that maps the data to the latent space, and then ii) a decoder $p_\theta(x_n \mid z)$ that maps the latent code to the ambient space. The model will then be specified by adopting flexible parametrisations of these densities using neural networks. 
 \end{remark}
 
 For completeness, we define the following objects. 
@@ -568,7 +586,7 @@ Furthermore, we will model the decoder $p_\theta(x \mid z)$ as a multivariate Ga
 \end{equation}
 where the variational parameters  $\mu_\phi(x), \sigma^2_\phi(x)$ are also controlled by a neural network taking $x$ as input. 
 
-Note that in this case implementing the reparametrisation trick is straightforward due to the Gaussian assumption for the encoder: sampling $\epsilon\sim\cN(0,I)$, and setting $z = g_\phi(x, \epsilon) = \mu + \sigma\epsilon$ we obtain samples from eq.~\eqref{eq:VAE_encoder}. Since in this case both the prior $p_\theta(z)$ and the encoder $q_\phi(z \mid x)$ are Gaussian, the KL term in the ELBO can be computed explicitly, meaning that only the \emph{expected reconstruction error} needs to be approximated via Monte Carlo---see Remark  \ref{rem:tractable_KL}. 
+Note that in this case implementing the reparametrisation trick is straightforward due to the Gaussian assumption for the encoder: sampling $\epsilon\sim\cN(0,I)$, and setting $z = g_\phi(x, \epsilon) = \mu_\phi(x) + \sigma_\phi(x)\epsilon$ we obtain samples from eq.~\eqref{eq:VAE_encoder}. Furthermore, since in this case both the prior $p_\theta(z)$ and the encoder $q_\phi(z \mid x)$ are Gaussian, the KL term in the ELBO can be computed explicitly, meaning that only the \emph{expected reconstruction error} needs to be approximated via Monte Carlo---see Remark  \ref{rem:tractable_KL}. 
 
 The resulting objective for a single datapoint $x_n$ is
 \begin{equation}
