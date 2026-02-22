@@ -138,7 +138,24 @@ This module provides a mathematically grounded introduction to **probabilistic g
 
 ---
 
-## **Week 7 — Normalising Flows & Flow Matching**
+## **Week 7 — Autoregressive Models & Transformers**
+
+### Content
+- Autoregressive factorisation of probability distributions
+- Maximum likelihood training of sequence models
+- Self-attention as conditional density modelling
+- Transformer architecture from a probabilistic perspective
+- Sampling strategies (temperature, top-k, top-p)
+
+### Literature
+- Vaswani et al. — *Attention Is All You Need*  
+- Bengio et al. — *Neural Probabilistic Language Models*  
+- Murphy — *Probabilistic Machine Learning*, Chapter 20  
+
+---
+
+## **Week 8 — Normalising Flows & Flow Matching**
+**Coursework 2 released**
 
 ### Content
 - Change-of-variables theorem
@@ -154,22 +171,7 @@ This module provides a mathematically grounded introduction to **probabilistic g
 
 ---
 
-## **Week 8 — Autoregressive Models & Transformers**
-**Coursework 2 released**
 
-### Content
-- Autoregressive factorisation of probability distributions
-- Maximum likelihood training of sequence models
-- Self-attention as conditional density modelling
-- Transformer architecture from a probabilistic perspective
-- Sampling strategies (temperature, top-k, top-p)
-
-### Literature
-- Vaswani et al. — *Attention Is All You Need*  
-- Bengio et al. — *Neural Probabilistic Language Models*  
-- Murphy — *Probabilistic Machine Learning*, Chapter 20  
-
----
 
 ## **Week 9 — Diffusion Models**
 *(Exam-only content)*
