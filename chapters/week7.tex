@@ -1,89 +1,86 @@
-\chapter{Transformers}
+\chapter{Sequence models}
 
-\textbf{NB:} This is based on \cite{turner2023introduction}, \cite{vaswani2017attention}, and \cite{hewitt2025coms4705}.
 
 
 \section{Probabilistic modelling of discrete sequences}
-Many problems in machine learning can be formulated as \emph{sequence modelling}: given an ordered collection of discrete symbols
+Across several disciplines, it is required to perform \emph{sequence modelling}. Given an ordered collection of discrete symbols
 \[
 x_{1:N} = (x_1, x_2, \dots, x_N),
 \]
-where each $x_n$ takes values in a finite (or countable) vocabulary $\mathcal{V}$, we seek to model the structure governing their arrangement. Importantly, we make no prior assumption that elements of $\mathcal{V}$ possess a natural numerical representation; they are abstract symbols. The problem is therefore inherently combinatorial. A principled approach is probabilistic: we posit a joint distribution over sequences and write, by the chain rule,
+where each $x_n$ belongs to a finite (or countable) vocabulary $\mathcal{V}$, we aim to construct a probabilistic model for this sequence. Understanding such a structure would enable task such as compression, next-symbol prediction, or in the case of text, translation and summarisation. 
+
+With no prior assumption of similarity or proximity in  $\mathcal{V}$, the problem has combinatorial complexity. From a probabilistic perspective, the distribution of the sequence can be factorised as
 \[
 p(x_{1:N}) = \prod_{n=1}^{N} p(x_n \mid x_{1:n-1}),
 \]
-thereby reducing sequence modelling to repeated next-symbol prediction.
+where the sequence modelling problem reduces to the next-symbol prediction task.
 
-The full factorisation above is exact but generally intractable, as the conditioning context $x_{1:n-1}$ grows with $n$. A classical simplification is the $k$-th order Markov assumption, which postulates that the conditional distribution depends only on the previous $k$ symbols:
+Observe that this factorisation becomes unfeasible in practice: since the conditioning statement $x_{1:n-1}$ grows with $n$, the transition probability cannot be coherently modelled with a fixed number of parameters. A standard approach is to assume a $k$-th order Markovian transition, that is,
 \[
 p(x_n \mid x_{1:n-1}) \approx p(x_n \mid x_{n-k:n-1}).
 \]
-This yields the \emph{$k$-gram factorisation}
+This yields the $k$-gram factorisation
 \[
 p(x_{1:N}) \approx \prod_{n=1}^{N} p(x_n \mid x_{n-k:n-1}),
 \]
-where each conditional probability is estimated from empirical counts.
+where the transition kernel is modelled as a look-up table $T\in[0,1]^{|\mathcal{V}|^k\times |\mathcal{V}|}$ with entries trained from empirical counts. While meaningful, this approach has poor scalability properties, where the number of parameters required to specify all conditionals scales on the order of $ |\mathcal{V}|^{\,k+1}$.
 
-While conceptually simple and statistically well-founded, this approach suffers from a fundamental scalability limitation. The number of possible conditioning contexts grows as $|\mathcal{V}|^{\,k}$, so the number of parameters required to specify all conditionals scales on the order of
-\[
-|\mathcal{V}|^{\,k+1}.
-\]
-For even moderate vocabulary sizes and context lengths, this leads to severe data sparsity and an exponential explosion in dimensionality. Consequently, purely counting-based $k$-gram models become statistically and computationally infeasible as $k$ increases — a direct manifestation of the curse of dimensionality.
+As a consequence, and even for moderately-sized  vocabularies and context lengths $k$, these counting-based $k$-gram models suffer from severe training-samples sparsity and a direct manifestation of the curse of dimensionality.
 
 
 \begin{remark}
-The fundamental limitation of $k$-gram models is not merely statistical sparsity, but the absence of structural generalisation. Each conditioning context $x_{n-k:n-1}$ is treated as an atomic configuration, unrelated to any other. Consequently, two contexts that differ in only one symbol — or that are semantically similar — correspond to entirely distinct parameters. The model does not exploit any notion of similarity, compositionality, or shared structure among symbols or contexts. In this sense, the curse of dimensionality arises not only from combinatorial growth, but from a failure to impose inductive bias.
+The fundamental limitation of $k$-gram models stems from  the absence of underlying structure for the elements in $\mathcal{V}$, where the conditioning contexts $x_{n-k:n-1}$ are treated as unrelated atoms. Consequently, any two given contexts correspond to entirely distinct parameters even if they convey similar meanings. Therefore,  $k$-gram models do not exploit any notion of similarity or shared structure among symbols or contexts, where the curse of dimensionality arises from a failure to impose meaningful inductive biases.
 \end{remark}
 
-\paragraph{Neural Language Models.}
-A natural remedy is to introduce a parametric model that shares statistical strength across related contexts. Concretely, we replace the tabulated conditional probabilities with a parameterised family
+\paragraph{Language models.}
+We can introduce a parametric model that identifies related contexts, thus replacing the look-up table of probabilities with a parameterised family
 \[
 p_\theta(x_n \mid x_{1:n-1}),
 \]
-where $\theta$ denotes a finite-dimensional set of parameters. To enable generalisation across symbols, we introduce a representation map (or embedding)
+where $\theta$ denotes a finite-dimensional set of parameters. Since parametric families operate on spaces with a notion of similarity, we must introduce a representation map (or embedding)
 \[
-e : \mathcal{V} \to \mathbb{R}^d,
+e : \mathcal{V} \to \R^d,
 \]
-which assigns to each discrete token a vector in a continuous space. Contexts can then be represented through compositions of these embeddings, and the next-token distribution is defined via a parametric function, for example
+which assigns a continuous vector representation to each discrete symbol. This is also expected to promote generalisation, where symbols that convey similar meanings are mapped to nearby vectors. By composing the embeddings with the a parametric model, the next-token distribution can be modelled as
 \[
 p_\theta(x_n = v \mid x_{1:n-1})
 =
-\frac{\exp\big( s_\theta(v, x_{1:n-1}) \big)}
-{\sum_{v' \in \mathcal{V}} \exp\big( s_\theta(v', x_{1:n-1}) \big)},
+\frac{\exp\big( s_\theta(e(v), e(x_{1:n-1})) \big)}
+{\sum_{v' \in \mathcal{V}} \exp\big( s_\theta(e(v'), e(x_{1:n-1})) \big)},
 \]
-where $s_\theta$ is a learnable scoring function.
+where $s_\theta$ is a learnable scoring function and $e(x_{1:n-1}) = (e(x_{1}), e(x_{2}), \ldots, e(x_{n-1}))$.
 
 The parameters $\theta$, including the embedding map $e$, are estimated by maximising the log-likelihood of observed sequences,
 \[
 \mathcal{L}(\theta)
 =
 \sum_{n=1}^{N}
-\log p_\theta(x_n \mid x_{1:n-1}),
+\log p_\theta(x_n \mid x_{1:n-1}). 
 \]
-thereby learning representations that capture statistical regularities of the sequence distribution. In this manner, combinatorial enumeration is replaced by geometric structure and parameter sharing in a continuous space.
+In this formulation, a notion of similarity is exploited through the embedding map $e$ and the parameters of $s_\theta$, which is usually implemented by a feedforward network. If similar contexts induce similar embeddings, the model should be able to generalise beyond observed $k$-tuples. As a consequence, the exponential dependence on $|\mathcal{V}|^k$ is replaced by a parameter count that grows with the embedding dimension and network width.
 
-A simple instantiation of the parametric framework replaces the $k$-gram table by a learnable scoring function acting on a fixed window of embeddings. Let
+\begin{remark}[Distributed respresentations]
+One possible choice for the embedding map $e$ is a one-hot encoding,  that is, for a vocabulary of size $|\mathcal{V}|$ we define
 \[
-z_n = \big(e(x_{n-k}), \dots, e(x_{n-1})\big) \in \mathbb{R}^{kd}
+e(v) = e_i \in \R^{|\mathcal{V}|},
 \]
-denote the concatenation of the previous $k$ token representations. A neural language model defines
+where $e_i$ is the $i$-th canonical basis vector corresponding to token $v$. However, observe that this representation does not introduce any notion of similarity among tokens. Conversely, using a learnable embedding
 \[
-p_\theta(x_n = v \mid x_{n-k:n-1})
-=
-\frac{\exp\big( s_\theta(v, z_n) \big)}
-{\sum_{v' \in \mathcal{V}} \exp\big( s_\theta(v', z_n) \big)},
+e : \mathcal{V} \to \R^d,
+\qquad d \ll |\mathcal{V}|,
 \]
-where $s_\theta$ is implemented by a feedforward network.
+whose coordinates are trained jointly with the rest of the model, allows tokens with similar functional or semantic roles to acquire similar representations in $\R^d$, thereby enabling generalisation across related symbols.
 
-In this formulation, statistical strength is shared across contexts through the embedding map $e$ and the parameters of $s_\theta$. Similar contexts induce similar feature vectors $z_n$, allowing generalisation beyond observed $k$-tuples. The exponential dependence on $|\mathcal{V}|^k$ is replaced by a parameter count that grows linearly with the embedding dimension and network width.
-
-\begin{remark}
-The introduction of distributed representations resolves the combinatorial explosion of parameters and enables geometric notions of similarity. However, the model remains constrained by a fixed context window of size $k$. All information outside this window is discarded, irrespective of its semantic relevance. Thus, while the dimensionality problem has been mitigated, a new limitation emerges: memory is finite and rigidly truncated. Long-range dependencies cannot be captured unless $k$ is increased, reintroducing computational and statistical burdens.
+These are referred to as \emph{distributed representations} \cite{bengio2003neural} because the information associated with a token is not stored in a single dedicated coordinate (as in a one-hot vector), but rather distributed across many components of its embedding vector. As a consequence, each coordinate affects the representation of many different tokens, where meaning is thus encoded in patterns of activations (rather than single coordinates).
 \end{remark}
 
-\paragraph{Recurrent neural networks.}
+\begin{remark}
+Although distributed representations alleviate the combinatorial explosion, this parametric approach remains constrained by a fixed context window of size $k$. Therefore, all information outside this window is discarded, irrespective of its semantic relevance. Thus, long-range dependencies cannot be captured unless $k$ is increased, which again involves a computational challenge.
+\end{remark}
 
-To overcome the rigidity of fixed context windows, we seek a mechanism that allows the effective conditioning context to grow with the sequence length without incurring exponential parameter growth. Recurrent neural networks (RNNs) achieve this by introducing a latent state variable $h_n \in \mathbb{R}^d$ that evolves recursively according to
+\paragraph{Recurrent neural networks (RNNs).}
+
+To implement flexible, data-dependent, context lengths, RNNs \cite{elman1990finding} introduce a latent state variable $h_n \in \R^d$ that evolves recursively according to
 \[
 h_n = f_\theta(h_{n-1}, e(x_n)),
 \]
@@ -94,44 +91,17 @@ p_\theta(x_{n+1} \mid x_{1:n})
 \mathrm{Softmax}\big( W h_n \big).
 \]
 
-Conceptually, the hidden state $h_n$ serves as a summary of the entire past $x_{1:n}$. The Markov assumption is shifted from the observable sequence to the latent state: conditioned on $h_n$, the future is independent of the past. In principle, this construction permits dependencies of arbitrary length, since the state is updated at every time step and may carry forward relevant information indefinitely.
+Though the hidden state $h_n$ has a fixed size, it represents a summary of the entire past $x_{1:n}$, and the Markov assumption is now placed on the latent state rather than the observed sequence. Conceptually, this construction allows for modelling arbitrary context lengths, where the state is updated at every time step, preserving relevant information indefinitely by implementing a learned compression mechanism.
 
-Intuitively, recurrence replaces a fixed sliding window with a learned compression mechanism. Rather than remembering the last $k$ symbols explicitly, the network learns what to retain, transform, or discard in its hidden state as the sequence unfolds. The model thus trades combinatorial context enumeration for dynamical state evolution.
-
-
-\begin{remark}
-Recurrent models remove the rigid truncation imposed by fixed context windows: in principle, the hidden state $h_n$ may encode information from arbitrarily far in the past. However, this flexibility comes at a structural cost. All past information must be compressed into a single fixed-dimensional vector at each time step. As the sequence length grows, the state must simultaneously preserve long-range dependencies while remaining expressive enough to incorporate new inputs. This compression induces both representational and optimisation difficulties: information may be progressively diluted, and gradients must propagate through long chains of nonlinear transformations.
-
-Thus, although recurrence resolves the limitation of finite context, it introduces a new bottleneck — the requirement that the entire past be summarised in a single evolving state.
-\end{remark}
-
-This observation suggests a different perspective on sequence modelling. Rather than compressing the past into a single vector, one may instead retain intermediate representations and allow the model to access them directly when needed. Such a mechanism replaces sequential state compression with content-based memory access, leading naturally to attention mechanisms.
-
-\paragraph{Attention as adaptive memory access.}
-
-Attention mechanisms were first introduced as an augmentation of recurrent encoder–decoder architectures. Instead of relying solely on the final hidden state as a compressed representation of the input sequence, the model retains the full collection of intermediate states $\{h_m\}_{m=1}^N$ and constructs a context vector dynamically at each decoding step. Concretely, given a query state $q_n$ (typically derived from the current decoder state), attention defines weights
-\[
-\alpha_{nm}
-=
-\frac{\exp\big( a_\theta(q_n, h_m) \big)}
-{\sum_{j=1}^{N} \exp\big( a_\theta(q_n, h_j) \big)},
-\]
-where $a_\theta$ is a learnable compatibility function. The resulting context vector is a weighted combination
-\[
-c_n = \sum_{m=1}^{N} \alpha_{nm} \, h_m.
-\]
-The next-token distribution is then conditioned not only on the recurrent state, but also on this adaptively constructed summary:
-\[
-p_\theta(x_{n+1} \mid x_{1:n})
-=
-\mathrm{Softmax}\big( W [h_n, c_n] \big).
-\]
-
-In this formulation, memory is no longer compressed into a single evolving vector. Instead, the model performs content-based addressing over previously computed representations, allowing it to retrieve information selectively rather than propagate it solely through recursive state transitions.
+Despite eliminating the rigidity of fixed context
+windows, RNNs involve an information bottleneck, where the entire history $x_{1:n}$ must be compressed into a single fixed-dimensional state vector. Long Short-Term Memory (LSTM) networks partially address this issue by introducing a memory cell together with input, forget, and output gates \cite{hochreiter1997long}. These allow to preserve information over long and short time horizons, and alleviates vanishing-gradient problems.
 
 \begin{remark}
-Once attention provides direct access to the collection of past representations $\{h_m\}$, the necessity of strict temporal recursion becomes less evident. If each position can attend to all others through learned compatibility scores, sequence modelling may be reformulated as the iterative refinement of a set of representations via pairwise interactions, rather than as the propagation of a single hidden state through time. In this perspective, recurrence ceases to be fundamental. This observation leads to attention-only architectures, in which recursion is removed entirely and dependencies are modelled through stacked layers of self-attention.
+The fundamental constraint of RNNs (including LSTMs) is that all past information must ultimately be encoded in a single evolving state vector. Also, due to the sequential recursion, full parallelisation is not possible. These limitations motivate a different perspective, where the model can access expressive per-token representations directly when needed, thus replacing sequential compression with content-based memory (thus leading to attention).
 \end{remark}
+
+\paragraph{The attention paradigm.}
+Attention was initially introduced as a mechanism augmenting recurrent encoder–decoder models \cite{bahdanau2014neural}, addressing the compression bottleneck by allowing the decoder to access all intermediate encoder states rather than relying solely on a single final hidden vector. Though this significantly improved long-range modelling, once direct access to all positions was made available through the attention mechanism, the temporal recurrence became unnecessary for modelling long-range dependencies. This shift in perspective paved the way to the \emph{Attention Is All You Need} paradigm \cite{vaswani2017attention}.
 
 
 \section{Overview of the Transformer architecture}
@@ -141,10 +111,12 @@ x_1, x_2, \dots, x_N \in\R^D
 \]
 concatenated as a column-wise matrix
 \[
-X = [x_1, x_2, \dots, x_N]^\top \in \mathbb{R}^{D \times N}.
+X = [x_1, x_2, \dots, x_N]^\top \in \R^{N\times D}.
 \]
 
-The representations $x_1, x_2, \dots, x_N \in\R^D$ can be fixed such as a one-hot encoding of symbols, a pre-learned representation such as word2vec, or a learnable representation to be trained alongside the rest of the model, and apply to any type of data that can be \emph{tokenised}. 
+The representations can be fixed such as a one-hot encoding of symbols, a pre-learned representation such as word2vec \cite{mikolov2013efficient}, or a learnable representation to be trained alongside the rest of the model, and apply to any type of data that can be \emph{tokenised}. 
+
+We aim to construct a series of representations of the form $X^{(0)}, X^{(1)},\ldots, X^{(M)}$, where $X^{(0)} = X$, and the transition from $X^{(m)}$ to $X^{(m+1)}$, $m\in \{0,\ldots,M-1\}$, is modelled by a unit referred here to as a Transformer block, as illustrated in Fig.~\ref{fig:Transformer_blocks}. We next describe the structure of this unit. 
 
 
 \begin{figure}[t]
@@ -155,74 +127,68 @@ The representations $x_1, x_2, \dots, x_N \in\R^D$ can be fixed such as a one-ho
 \end{figure}
 
 
-We would like to construct a set of representations
+
+
+\paragraph{Attention.} 
+For each $X^{(m)}$, we would like to construct a set of enriched representations
 \[
 z_1, z_2, \dots, z_N,
 \]
-where $z_n$ conveys \emph{contextualized} information of the entire sequence as opposed to the \emph{isolated} representation $x_n$. For each token coordinate, this can be achieved by implementing a mapping of the form 
+where $z_n$ conveys \emph{contextualized} information of the entire sequence as opposed to the \emph{isolated} representation $x_n$. For each token, this can be achieved by implementing a mapping of the form 
 \[
 z_n = f(x_n, x_1, \dots, x_N),
 \]
-where the function $f$ is the same for all positions (parameter sharing) and the output remains in $\mathbb{R}^d$.
+where the feature map $f$ is the same for all positions, therefore, exploiting a shared-parameter structure,  and the output remains in $\R^D$.
 
-\paragraph{Attention.} This operation can be implemented via an attention mechanism, a particular instance of this is defined as follows. For the token embeddings $X$, let us define
+This feature mapping can be implemented via an attention mechanism; a particular instance of this is defined as follows. For the token embeddings $X$, let us define
 \[
 \begin{aligned}
-\text{Query:} \quad & Q = XW_Q \\
-\text{Key:}   \quad & K = XW_K \\
-\text{Value:} \quad & V = XW_V,
+\text{Query:} \quad & Q = XW_Q \in \R^{N\times D_K}\\
+\text{Key:}   \quad & K = XW_K \in \R^{N\times D_K}\\
+\text{Value:} \quad & V = XW_V \in \R^{N\times D_V},
 \end{aligned}
 \]
-where $W_Q, W_K \in \R^{D \times D_k}$
-and $W_V \in \R^{D \times D_v}$ are learnable weight matrices.
+where $W_Q, W_K \in \R^{D \times D_K}$
+and $W_V \in \R^{D \times D_V}$ are learnable weight matrices.
 
 The \emph{scaled dot-product self-attention} of $X$ is defined as
 \[
 \mathrm{Att}(X)
 \defeq
 \mathrm{softmax}\!\left(
-\frac{QK^\top}{\sqrt{D_k}}
-\right)V,
+\frac{QK^\top}{\sqrt{D_K}}
+\right)V\, \in \R^{N\times D_V},
 \]
 giving the contextualised representation by 
 \[
 Z = \mathrm{Att}(X).\]
 
-The attention matrix $QK^\top \in \mathbb{R}^{N \times N}$ contains
-pairwise similarity scores between all tokens.
-After scaling by $\sqrt{D_k}$ and applying the row-wise softmax,
-these scores become attention weights, so that each output
-representation is a convex combination of the value vectors.
+The attention matrix $QK^\top \in \R^{N \times N}$ contains pairwise similarity scores between all tokens.
+After scaling by $\sqrt{D_K}$ and applying the row-wise softmax, these scores become attention weights, so that each output representation is a convex combination of the value vectors. The role of the scaling by $\sqrt{D_K}$ is to control the magnitude of the dot products as the dimensionality of the query/key embeddings grows.
 
-Intuitively, an implicit underlying assumption to construct the contextual representation is that different tokens should be able to depend on different parts of the sequence. The token at position $n$ may pay attention to the token in position $n'$, while another token may need to focus on another part of the sequence.
-
-Contextualisation should not be fixed in advance, but rather content-dependent: each token must selectively aggregate
-information from the rest of the sequence according to the learning strategy (to be defined later). The attention mechanism achieves this by producing, for each token, a learned, data-dependent weighted combination of
+Intuitively, an implicit underlying assumption to construct the contextual representation is that different tokens should be able to depend on different parts of the sequence. The token at position $n$ may pay attention to the token in position $n'$, while another token may need to focus on another part of the sequence. Furthermore, contextualisation should not be fixed but rather content-dependent. This allows for each token to selectively aggregate information from the rest of the sequence according to the learning strategy (to be defined later). The attention mechanism achieves this by producing, for each token, a learned, data-dependent weighted combination of
 the input representations $x_1, \dots, x_N$.
 
 \paragraph{MLP stage.}
-Observe that, after the attention operation, the representation is still linear in the token values.  To increase the expressivity of the model, a nonlinear transformation can be applied to the attention output. Intuitively, this transformation should be the same for each token. 
-
-To extract relevant nonlinear feature representations, this transformation can be implemented as a position-wise multilayer perceptron (MLP), again with learnable (and shared) parameters. That is, 
+After the attention operation, the representation is linear in the token values and thus may not provide the required modelling capacity.  To increase the expressivity of the model, a nonlinear transformation can be applied to the attention output $Z$. Following the same parameter-sharing concept above, this transformation should be the same for each token. This can be achieved by a position-wise multilayer perceptron (MLP)
 \begin{equation}
     z_n \mapsto \text{MLP}_\theta(z_n)\,, \forall n=1,\ldots,N.
 \end{equation}
 
-\paragraph{Residual connection.} Rather than requiring each Transformer block to construct an entirely new representation from scratch, we can facilitate feature extraction
-by modelling the updated representation as an additive refinement of the previous one. This is achieved by implementing residual connections both in the attention and MLP stages, thus guiding the expressivity of each component to what needs to be adjusted rather than relearned.
+\paragraph{Residual connection.} Rather than requiring each Transformer block to construct an entirely new representation from scratch, feature extraction can be facilitated by modelling the updated representation as an additive improvement of the previous one. This can be achieved by incorporating residual connections both in the attention and MLP stages, thus guiding the expressivity of each component to what needs to be refined rather than relearned \cite{he2016deep}.
 
-Additionally, this residual formulation not only encourages incremental (and thus stable) representation learning, but also improves optimisation by preserving a direct path for information and gradients across depth.
+Additionally, this residual formulation not only encourages incremental (and, arguably, stable) representation learning, but also improves optimisation by preserving a direct path for backpropagating gradients across layers.
 
-\paragraph{Normalisation.} Lastly, as the learnt representations will propagate through multiple blocks, their magnitude can progressively vanish/explode and thus result in insensitive/unstable optimisation dynamics. Furthermore, with the aim to preserve the architecture of the attention block across layers, it is required that successive layers operate on well-conditioned inputs of similar magnitued.
+\paragraph{Normalisation.} Lastly, as the learnt representations will propagate through multiple blocks, their magnitude can progressively vanish/explode and thus result in insensitive/unstable optimisation dynamics. Furthermore, with the aim to preserve the architecture of the attention block across layers, it is required that successive layers operate on well-conditioned inputs of similar magnitude.
 
-This can be ensured by introducing a normalisation step that re-centres and re-scales activations at each position. That is, 
+This can be ensured by introducing a normalisation step that re-centres and re-scales the output of each component at each position \cite{ba2016layer}. That is, 
 
 \begin{equation}
     \bar{x}_{d,n} \defeq [\mathrm{LayerNorm}(X)]_{d,n} = \gamma_d \frac{h_{d,n} - \mean{x_n}}{\sqrt{\var{x_n} + \varepsilon}} + \beta_d,
 \end{equation}
 where 
 \[
-\mean{x_n} = \frac{1}{D}\sum_{d=1}^{D} \mean{x_{d,n}}; \quad \var{x_n} = \frac{1}{D}\sum_{k=1}^{D} \big(x_{d,n} - \mean{x_{n}}\big)^2,
+\mean{x_n} = \frac{1}{D}\sum_{d=1}^{D} x_{d,n}; \quad \var{x_n} = \frac{1}{D}\sum_{k=1}^{D} \big(x_{d,n} - \mean{x_{n}}\big)^2,
 \]
 $\gamma_d, \beta_d \in \R$ are learnable scale and shift parameters, and $\varepsilon > 0$ is a small constant introduced for numerical
 stability.
@@ -231,34 +197,23 @@ stability.
 \paragraph{Temporal (positional) encoding.}
 
 
-With the components presented so far, the Transformer block is
-invariant to permutations of the input tokens. This presents a clear
-limitation in practice, since the relationships among tokens
-(modelled through attention) depend not only on their content, but
-also on their order.
+With the components presented so far, the Transformer block is invariant to permutations of the input tokens. This can be a limitation in some cases, since it only allows to learn relationships among tokens that depend on their content, and not on their order. For instance, consider the sentences \emph{``the dog chased the cat''} and \emph{``the cat chased the dog''}.
+Though the same tokens appear in both cases, it is clear that the actors have different roles, which leads to different meanings. A permutation-invariant mechanism would be unable to distinguish between the meanings of these sequences.
 
-For instance, consider the sentences
-\emph{``the dog chased the cat''} and
-\emph{``the cat chased the dog''}.
-The same tokens appear in both cases, yet their positions determine
-who is the agent and who is the object, leading to entirely different
-meanings. A permutation-invariant mechanism would be unable to
-distinguish between such sequences.
-
-To encode temporal structure, we therefore augment each token representation with a position-dependent vector before applying attention, allowing the model to incorporate ordering information while preserving its parallel architecture. One alternative, is to simply add a function of the token position to the token representation
+To encode temporal structure, each token representation can be augmented with a position-dependent feature before entering the Transformer block. One alternative is to simply add a function of the token position to the token representation
 $x_n$ with
 \[
-\tilde{x}_n = x_n + p_n,
+\tilde{x}_n = x_n + p(n),
 \]
-where $p_n$ is a position-dependent function. This function can be fixed, such as a vector of sinusoids of different frequencies and phases encoding the token's position as done by \cite{vaswani2017attention}, or a free parameter that is learnt with the rest of the model. 
+where $p(n)$ only depends on the position $n$. This function can be fixed, such as a vector of sinusoids of different frequencies and phases encoding the token's position as done by \cite{vaswani2017attention}, or a free parameter that is learnt with the rest of the model. 
 
 
 \begin{remark}[Architecture within each block]
-    The attention block operates in two stages: first, attention performs global information exchange across tokens, and the MLP performs local nonlinear feature refinement. After each of these stages a residual connection and normalisation is included both to aid the feature extraction and make training more stable.
+    The attention block operates in two stages: first, attention performs global information exchange across tokens, and the MLP performs local nonlinear feature refinement. After each of these stages a residual connection and normalisation is included both to aid the feature extraction and make training more stable. See Fig.~\ref{fig:Transformer_block} for an illustrative diagram.
 \end{remark}
 
 \begin{remark}[How are the parameters learnt?]
-    So far, it may make no sense how all the parameters introduced will be learnt so that they take the role that we assigned to them. Recall the the Transformer is a processing stage taking part in a larger architecture usually used to address and end-to-end task such as a next-word predictor or a object recognition network. Therefore, all the parameters will be learnt alongside the rest of the architecture to solve the given task.  
+    So far, it may make little sense how all the introduced parameters will be learnt, so that they adopt the role assigned to them. Recall that the Transformer is a processing stage taking part in a larger architecture usually used to address and end-to-end task such as a next-word predictor or an object recognition network. Therefore, all the parameters will be learnt alongside the rest of the architecture to address the given task. 
 \end{remark}
 
 
@@ -271,20 +226,17 @@ where $p_n$ is a position-dependent function. This function can be fixed, such a
 
 
 
-\section{The Attention Mechanism in Detail}
+\section{Attention in more detail}
 
 
+\paragraph{The attention module (general form).}
+Let $Q = \{q_i\}_{i=1}^{N_Q}$ be a set of queries,
+$K = \{k_j\}_{j=1}^{N_K}$ a set of keys,
+and $V = \{v_j\}_{j=1}^{N_V}$ a set of values,
+with $q_i, k_j \in \R^{D_K}$ and
+$v_j \in \R^{D_V}$.
 
-
-\paragraph{Attention Module (General Form).}
-Let $Q = \{q_i\}_{i=1}^{n_q}$ be a set of queries,
-$K = \{k_j\}_{j=1}^{n_k}$ a set of keys,
-and $V = \{v_j\}_{j=1}^{n_k}$ a set of values,
-with $q_i, k_j \in \mathbb{R}^{d}$ and
-$v_j \in \mathbb{R}^{d_v}$.
-
-An attention module is a mapping that produces, for each query $q_i$,
-a weighted combination of the values:
+An attention module is a mapping that produces, for each query $q_i$, a weighted combination of the values:
 \[
 \mathrm{Att}(q_i, K, V)
 =
@@ -298,56 +250,212 @@ where the attention weights $\alpha_{ij}$ satisfy
 {\sum_{\ell=1}^{n_k} \exp\big(s(q_i,k_\ell)\big)}.
 \]
 
-Here $s : \mathbb{R}^d \times \mathbb{R}^d \to \mathbb{R}$
-is a compatibility (or scoring) function measuring the relevance
-of key $k_j$ to query $q_i$.
-Thus, attention computes a data-dependent convex combination of values,
-with weights determined by query–key similarity.
+Here $s : \R^D \times \R^D \to \R$ is a \emph{similarity} function measuring the relevance of key $k_j$ to query $q_i$. Therefore, attention computes a data-dependent convex combination of values, with weights determined by query–key similarity function $s(\cdot,\cdot)$.
 
+
+\begin{remark}[Scaled dot-product self-attention]
+The scaled dot-product self-attention mechanism used in
+transformer architectures is a particular instance of the
+general attention module defined above, where:
 \begin{itemize}
-    \item \textbf{Self-Attention and Cross-Attention.}
-    Self-attention contextualises tokens within a sequence, while
-    cross-attention conditions one sequence on another.
-
-    \item \textbf{Multi-Head Attention.}
-    Multiple attention heads operate in parallel over learned subspaces,
-    increasing representational flexibility.
-
-    \item \textbf{Attention as Kernel Smoothing.}
-    Attention can be interpreted as a data-dependent kernel operator,
-    where softmax-normalised similarities define adaptive weights.
+    \item The queries, keys, and values are all linear projections
+    of the same input sequence $X = [x_1, x_2, \dots, x_N]^\top \in \R^{N\times D}$
+    (hence ``self''-attention):
+    \[
+    q_n = W_Q x_n, \quad
+    k_n = W_K x_n, \quad
+    v_n = W_V x_n,
+    \]
+    where $W_Q, W_K \in \R^{D \times D_K}$
+    and $W_V \in \R^{D \times D_V}$.
+    
+    \item The compatibility function is chosen to be the
+    scaled dot product:
+    \[
+    s(q_i,k_j)
+    =
+    \frac{q_i^\top k_j}{\sqrt{D_K}}.
+    \]
 \end{itemize}
+\end{remark}
 
-\section{Transformer Architectures}
+\begin{remark}
+    Though the inner product might seem somewhat limiting as a similarity measure, recall that this inner product is taken on a trained high-dimensional embedding space that is subsequently refined through a series of Transformer blocks. 
+\end{remark}
 
-\begin{itemize}
-    \item \textbf{Encoder-Only Architectures.}
-    Bidirectional self-attention models designed for representation
-    learning (e.g.\ masked language modelling).
-
-    \item \textbf{Decoder-Only Architectures.}
-    Causal self-attention models for autoregressive generation.
-
-    \item \textbf{Encoder--Decoder Architectures.}
-    Hybrid models combining bidirectional encoding with conditional
-    decoding, commonly used in sequence-to-sequence tasks.
-\end{itemize}
+In tasks such as translation, style transfer, conditional generation or sequence-to-sequence problems in general, it is often desirable to understand how one sequence  interacts with another sequence. From the core definition of attention, it is natural to ask how the same mechanism can be used to describe how a sequence “attends” to another.
 
 
-\section{Mathematical Perspectives on Transformers}
+\paragraph{Cross-Attention.} To extend the general attention module so that the queries and the key–value pairs come from \emph{different} sources, let $X = \{x_i\}_{i=1}^{N_Q}$ and $Y = \{y_j\}_{j=1}^{N_K}$ be two distinct sequences, e.g., a target sequence and a source sequence in sequence-to-sequence models. Queries are computed from $X$, while keys and values are computed from $Y$, i.e., 
+\[
+q_i = W_Q x_i, 
+\quad
+k_j = W_K y_j, 
+\quad
+v_j = W_V y_j.
+\]
+The output for each $q_i,\,i=1,\ldots,N_Q$, is then
+\[
+\mathrm{Att}(q_i, K, V)
+=
+\sum_{j=1}^{N_K}
+\frac{\exp\!\left(s(q_i,k_j)\right)}
+{\sum_{\ell=1}^{N_K} \exp\!\left(s(q_i,k_\ell)\right)}
+\, v_j.
+\]
+Thus, cross-attention allows elements of one sequence to attend to, and aggregate information from, another sequence. In Transformer architectures, it is typically used in encoder–decoder models, where decoder queries attend to encoder key–value representations.
 
-\begin{itemize}
-    \item \textbf{Attention as a Data-Dependent Linear Operator.}
-    Self-attention applies an adaptive $N \times N$ operator whose
-    entries depend on the input sequence.
 
-    \item \textbf{Residual Networks as Discrete Dynamical Systems.}
-    Stacked Transformer blocks with residual connections resemble
-    iterative refinement or discrete flow dynamics.
+\paragraph{Kernel perspective.} The convex combination of values computed by the attention mechanism can be interpreted as a data-dependent linear estimator, in a remarkable analogy to the predictors arising in Gaussian process regression and kernel methods. In kernel regression, given data $\{(x_j,y_j)\}_{j=1}^n$ and a positive definite kernel $k(\cdot,\cdot)$,
+the prediction at a query (or test) point $x$ takes the form
+\[
+\hat f(x)
+=
+\sum_{j=1}^n w_j(x)\, y_j,
+\]
+where the weights depend on kernel evaluations between the query and the data,
+\[
+w(x)
+=
+K(x,X)\, K(X,X)^{-1},
+\qquad
+K(x,X) = \big(k(x,x_1),\dots,k(x,x_n)\big).
+\]
+Thus, the estimator is linear in the observations, with the coefficients determined by similarities between the query and the support points induced by the chosen kernel.
 
-    \item \textbf{Computational Complexity and Scaling.}
-    The quadratic complexity of attention in sequence length motivates
-    sparse and approximate variants for long-context modelling.
-\end{itemize}
+Attention has the same structural form:
+\[
+\mathrm{Att}(q_i,K,V)
+=
+\sum_{j=1}^{n_k} \alpha_{ij} v_j,
+\qquad
+\alpha_{ij}
+=
+\frac{\exp(s(q_i,k_j))}
+{\sum_{\ell} \exp(s(q_i,k_\ell))},
+\]
+where the similarity function $s(q_i,k_j)$ can be related to the kernel, and the weights determine how the values are
+combined. In kernel methods, the weights are obtained through algebraic operations involving kernel evaluations, or equivalently, linear operations in the corresponding feature space, again, resembling the dot-product attention structure seen above. 
+
+The main difference, however, is the use of the softmax normalisation in attention. Recall that the analogous mixing weights in kernel estimators need not be positive nor sum to one. In contrast, the softmax in the attention module enforces
+\[
+\alpha_{ij} \ge 0,
+\qquad
+\sum_{j=1}^{n_k} \alpha_{ij} = 1,
+\]
+so that attention produces a convex combination of values.
+This nonlinear normalisation step aids the propagation of learnt relationships between tokens across layers.
+
+The kernel analogy can also be identified in cross-attention, where the key–value pairs $\{(k_j,v_j)\}$ correspond to the observations of one sequence, and the queries $\{q_i\}$ correspond to the query locations from another sequence. This is resembles the structure of multioutput GPs, where one channel can be estimated from  observations of another channel, based on a kernel specifying the covariances across space (channel) and time.
+
+\paragraph{Multi-head attention.}
+The focused similarity measure implemented by attention is often insufficient to capture the different types of relations occurring  across sequences. For example, in the sentence \emph{“The animal didn’t cross the street because it was too tired,”} the token “it” must attend to “animal” through a semantic relation, while other tokens may attend according to syntactic dependencies (e.g., subject–verb pairs) or positional structure. This phenomenon is also present in continuous time series, where values of the series relate at different scales, thus giving way to, e.g., rough and smooth components; in GP regression, this is accounted for using multiple kernels which are linearly combined. This concept also applies to attention. 
+
+Since distinct interaction patterns correspond to different notions of similarity, we can assume that each of these notions can be modelled by a single attention \emph{head}. Formally, several attention heads can be implemented concurrently, each with its own learned projections.
+For $h = 1,\dots,H$, define
+\[
+q_i^{(h)} = W_Q^{(h)} x_i,
+\quad
+k_j^{(h)} = W_K^{(h)} y_j,
+\quad
+v_j^{(h)} = W_V^{(h)} y_j,
+\]
+and compute
+\[
+\mathrm{head}^{(h)}(q_i)
+=
+\sum_{j=1}^{n_k}
+\alpha_{ij}^{(h)} v_j^{(h)},
+\qquad
+\alpha_{ij}^{(h)}
+=
+\frac{\exp\!\left(s^{(h)}(q_i^{(h)},k_j^{(h)})\right)}
+{\sum_{\ell} \exp\!\left(s^{(h)}(q_i^{(h)},k_\ell^{(h)})\right)}.
+\]
+Each head therefore induces its own data-dependent linear estimator
+based on a distinct learned similarity function. The outputs of the
+$H$ heads are concatenated and linearly projected:
+\[
+\mathrm{MHA}(q_i)
+=
+W_O \,
+\mathrm{Concat}\big(
+\mathrm{head}^{(1)}(q_i),\dots,\mathrm{head}^{(H)}(q_i)
+\big),
+\]
+where $W_O$ is a trainable set of weights that mixes the contributions of each attention head.
+
+
+\section{Encoder-decoder architectures}
+
+Transformers' exceptional modelling abilities have been primarily used in two general-interest tasks: \emph{representation learning} and \emph{conditional
+generation}. These are implemented by the encoder and the decoder architectures respectively.
+
+Let $X = (x_1,\dots,x_n)$ be an input sequence. The \emph{encoder}
+computes a contextualised representation
+\[
+H = \mathrm{Enc}(X) = (h_1,\dots,h_n)
+\qquad h_i \in \R^{d},
+\]
+as described above using the composition of multiple transformer blocks. Here, each $h_i$ aggregates
+information from all others elements $h_{\neq i}$. Intuitively, the encoder processes (or “reads”) the full
+sequence and builds a structured internal description of it.
+
+The \emph{decoder}, by contrast, defines a conditional generative model over an output sequence $Y = (y_1,\dots,y_m)$, factorising the joint distribution autoregressively:
+\[
+p(Y \mid X)
+=
+\prod_{t=1}^m
+p\big(y_t \mid y_{<t}, H\big),
+\qquad H = \mathrm{Enc}(X).
+\]
+The decoder implements the transformer blocks to compute a hidden state as
+\[
+z_t = \mathrm{Dec}(y_{<t}, H),
+\]
+using masked self-attention so as to ensure that $z_t$ depends only on previous outputs $y_{<t}$, and (optionally) cross-attention to condition the generation on the encoder representations $H$.
+
+\begin{remark}
+    The encoder computes global, bidirectional representations of an input sequence, and the decoder defines an autoregressive conditional model that
+    generates outputs sequentially (possibly conditioning on the encoder's output).
+\end{remark}
+
+Transformer architectures differ in terms of their use of an encoder, a decoder, or both.
+
+
+\begin{example}[Encoder-only architecture: BERT]
+    These architectures are used for representation learning tasks where the goal is to understand an input sequence, such as classification, sentence similarity, or token-level labeling. For example, \emph{BERT} (Bidirectional Encoder Representations from Transformers), uses deep encoder stacks trained with masked language modeling and next-sentence prediction objectives \cite{devlin2018bert}. 
+\end{example}
+
+
+\begin{example}[Decoder-only architecture: GPT]
+    These models are used for autoregressive generation tasks, modelling a sequence left-to-right for text generation, dialogue systems, or code completion. Given a sequence $Y = (y_1,\dots,y_T)$, the next-token conditional distribution is parameterized by a masked self-attention network via
+\[
+p(y_t \mid y_{<t})
+=
+\mathrm{Softmax}(W z_t).
+\]
+These conditionals are trained by maximising the likelihood of observed sequences under the autoregressive factorization. For example, \emph{GPT} (Generative Pretrained Transformer) implements stacked masked self-attention layers trained with next-token prediction \cite{radford2018improving}.
+\end{example}
+
+
+\begin{example}[Encoder-decoder architecture \cite{vaswani2017attention}]
+The original Transformer architecture combines both components into a single encoder–decoder model designed for sequence-to-sequence tasks, such as machine translation, summarisation, or speech-to-text. This encoder–decoder structure, introduced in \emph{“Attention Is All You Need”} \cite{vaswani2017attention}, is particularly suited to tasks where one sequence must be transformed into another, such as translation or summarization. It combines full bidirectional understanding of the input with controlled, autoregressive generation of the output. See Fig.~\ref{fig:Transformer_Vaswani} for a diagram.
+\end{example}
+
+
+\begin{figure}[t]
+    \centering
+    \includegraphics[width=0.7\textwidth, trim=6cm 14cm 6cm 2cm, clip]{img/week7_vaswani.pdf}
+    \caption{Encoder-Decoder architecture in the original transformer. Taken from \protect\cite{vaswani2017attention}}
+    \label{fig:Transformer_Vaswani}
+\end{figure}
+
+
+
+\paragraph{Pretraining and fine-tuning.} Decoder-only language models are first trained in a large-scale \emph{pretraining} phase using causal, i.e., next-word, prediction in a task-agnostic manner. In the next stage, referred to as \emph{fine-tuning}, the pretrained model is adapted to particular objectives using curated datasets, such as instruction–response pairs or alignment procedures designed to shape behaviour according to human preferences.
+
+Although the training objective remains simple next-token prediction, sufficiently large models capture complex linguistic (and arguably reasoning) patterns. Because many tasks can be formulated directly in natural language, e.g., ``Translate this sentence to French'' or ``Summarise the following paragraph'', the modelling power of these architecture renders the design of distinct models for each task unnecessary. Instead, the task itself is specified as part of the input prompt, and the model produces the appropriate output as a continuation of the sequence.
+
 
 
