@@ -1,0 +1,632 @@
+\chapter{Flow-based models}
+
+\textbf{NB:} This is based on \cite{papamakarios2021normalizing}, \cite{lipman2023flowmatching}, \cite{grathwohl2019ffjord},  \cite{tong2023improving},  \cite{chen2018neuralode}, and \cite{liu2022rectified}.
+
+
+\paragraph{Motivation.}
+
+We want to define a distribution over $\x\in\R^D$. Rather than parametrising it directly, we will express $\x$ as a transformation of a random vector $\u$, that is
+\[\x = T(\u), \qquad \u \sim p_\u(\u),\]
+where both the map and the based measure might have parameters, say, $\phi$ and $\psi$ respectively, that may define the resulting measure.
+
+Formally, the induced model will be the pushforward measure of $p_\u$ through $T$, that is,
+\[
+\int_A p(\x)\, d\x
+=
+\int_{T^{-1}(A)} p_\u(\u)\, d\u ,
+\qquad
+\forall A \subset \mathbb{R}^D \text{ measurable}.
+\]
+
+This is somehow an extension of the setting we adopted in the variational autoencoder formulation, where the base distribution was assumed to be Gaussian, the transformation $T$ a neural network, and the learning approach was that of variational inference. The extensions to be considered in this chapter and the next will be mainly in two directions. First, by imposing continuity and invertibility conditions of the map, the resulting model can be trained via maximum likelihood, provided the inverse of the map can be computed. Second, we will consider an approach where the map is broken down in stages, initially considering a compositional construction of the map and then an a continuous version; we will see that this perspective calls for an entirely new learning strategy. Third, we will study a deep version of the variational autoencoder formulation, where we will consider a collection of latent spaces  the provide controlled and expressive data representations, to be solved---akin to the original VAE--- by means of VI. 
+
+
+\section{Normalising flows}
+
+We first consider a setting imposing a clear (and arguably restrictive) condition on $T$: we will require it to be a diffeomorphism. A definition is given as follows as a reminder.
+
+\begin{definition}[Diffeomorphism]
+Let $T:\mathbb{R}^D \to \mathbb{R}^D$ be a map. We say that $T$ is a \emph{diffeomorphism} if it is bijective, continuously differentiable, and its inverse $T^{-1}$ is also continuously differentiable. Equivalently, $T$ is a $C^1$ bijection with a $C^1$ inverse. In particular, the Jacobian matrix $\nabla T(\u)$ exists everywhere and is non-singular, i.e.\ $\det \nabla T(\u) \neq 0$ for all $\u \in \mathbb{R}^D$.
+\end{definition}
+
+The comment regarding the fact that the considered map $T$ is bijective with a well defined Jacobian is crucial in our setting. This is because such setting allows us to express the induced density over $\x = T(\u)$ via the change-of-variables theorem in terms of the base measure $p_\u$ as follows 
+\begin{equation}
+\label{eq:CoV}    
+p(\x)
+=
+p_\u\!\left(T^{-1}(\x)\right)
+\left|
+\det \nabla T^{-1}(\x)
+\right|.    
+\end{equation}
+
+Equivalently, writing $\x = T(\u)$, the density can be expressed as
+\[
+p(\x)
+=
+p_\u(\u)
+\left|
+\det \nabla T(\u)
+\right|^{-1}.
+\]
+
+There is a number of remarks to be mentioned based on this. 
+
+
+\begin{remark}[Closed form likelihood]
+This identity is fundamental in normalising flows, as it allows the
+likelihood of observations $\x$ to be computed exactly, provided that
+both the inverse map $T^{-1}$ and the determinant of the Jacobian of
+$T$ (or its inverse) can be evaluated efficiently.
+\end{remark}
+
+\begin{remark}[Mass-preserving warping]
+The map $T$ can be interpreted as a warping of the ambient space
+$\cX$, which reorganises the probability mass of $p_\u$ into the
+target density $p$. Since probability mass must be preserved, the
+transformation only \emph{transports} mass; it neither creates nor
+destroys it. Therefore, local changes in volume induced by the map must be
+reflected in the resulting density, and this is precisely the role of the
+Jacobian factor $\det \nabla T^{-1}(\x)$ in eq.~\eqref{eq:CoV} above. If the transformation locally compesses the space, the
+density must increase accordingly to preserve mass; conversely, if
+the space is locally expanded, the density must decrease.
+\end{remark}
+
+\paragraph{Construction of expressive flows.}
+
+A natural questions that comes to mind at this stage is how expressive this construction is, in other words, given an arbitrary pair of densities $p_\u(\u), p(\x)$, does a map $T$ pushing the former to the latter always exist? For the scalar case, i.e., $\x\in\R$, verifying this is straightforward: when the densities are smooth, we can consider the mononote rearrangement given by 
+\begin{equation}
+    T(\u) = F^{-1}_\x(F_\u(\u)),
+\end{equation}
+where $F_\x$ and $F_\u$ are the cumulative distribution functions of $\x$ and $\u$ respectively. Intuitively, this flow is pushing the mass from $p_\u$ to a uniform distribution using $F_\u(\cdot)$, and then pushing it from there to $p$ via $F^{-1}_\x(\cdot)$. 
+
+Regarding the non-scalar case, recall that a map fulfilling eq.\eqref{eq:CoV} is always guaranteed to exist based on the result we saw on the OT chapter (Brenier Theorem), that states that the OT between two a.c. measures under the Euclidean ground cost always exist, is unique, and (critical in this setting) is the gradient of a convex potential (which ensures invertibility). 
+
+Despite Brenier's theoretical guarantees, further insight into the expressivity of the flow approach can be gained by trying to adapt the monotone arrangement concept to the vector-valued case. Naively, the monotone arrangement cannot be applied to vectors because, although the multivariate CDF is well defined and given by 
+\begin{equation}
+    F_\x(\x) = \int_{(-\infty,x_1)\times\cdots\times (-\infty,x_D)}p(\x)\d\x,
+\end{equation}
+they are not invertible and this a monotone arrangement cannot be constructed (there is, in particular, no concept of motononicity in $\R^D$). However, we can consider the triangular flow given as
+
+However, we can consider the triangular flow given by the
+\emph{Knothe--Rosenblatt rearrangement}. In this construction the
+transport map is triangular, meaning that each coordinate depends
+only on the current and previous ones,
+\[
+T(\u)
+=
+\begin{pmatrix}
+T_1(u_1)\\
+T_2(u_1,u_2)\\
+\vdots\\
+T_D(u_1,\ldots,u_D)
+\end{pmatrix}.
+\]
+
+The map is constructed recursively using conditional CDFs. Writing
+the base density as
+\[
+p_\u(\u)
+=
+p_{u,1}(u_1)
+\prod_{k=2}^D
+p_{u,k}(u_k \mid u_{1:k-1}),
+\]
+define the conditional CDFs
+\[
+F_{u,k}(t \mid u_{1:k-1})
+=
+\int_{-\infty}^{t}
+p_{u,k}(s \mid u_{1:k-1})\,ds,
+\]
+and similarly for the target density $p(\x)$,
+\[
+F_k(t \mid x_{1:k-1})
+=
+\int_{-\infty}^{t}
+p_k(s \mid x_{1:k-1})\,ds .
+\]
+
+The transport map is then defined recursively as
+\[
+x_k
+=
+F_k^{-1}\!\left(
+F_{u,k}(u_k \mid u_{1:k-1})
+\mid x_{1:k-1}
+\right),
+\qquad k=1,\ldots,D .
+\]
+
+Intuitively, each step first maps $u_k$ to a uniform variable via the
+conditional CDF of the base distribution and then maps it to the
+correct conditional distribution of the target via the inverse
+conditional CDF. This construction yields a diffeomorphic triangular
+map $T$ satisfying $T_\# p_\u = p$, showing that flows are expressive
+enough to represent arbitrary smooth densities.
+
+This triangular structure is particularly attractive from the
+perspective of the change-of-variables formula. Indeed, the Jacobian
+matrix $\nabla T(\u)$ is triangular, and therefore its determinant is
+simply the product of its diagonal entries,
+\[
+\det \nabla T(\u)
+=
+\prod_{k=1}^D
+\frac{\partial T_k}{\partial u_k}(u_{1:k}).
+\]
+As a result, the Jacobian determinant required in
+eq.~\eqref{eq:CoV} can be computed efficiently, which is a key
+requirement for likelihood-based training in normalising flows.
+Moreover, since the inverse of a triangular map is also triangular,
+the same computational advantage holds when evaluating the likelihood
+via the inverse transformation.
+
+
+A natural way to construct expressive flows is to build the map as a
+composition of simpler diffeomorphisms. Concretely, one writes
+\[
+T = T_K \circ \cdots \circ T_1,
+\]
+where each $T_k : \R^D \to \R^D$ is an invertible transformation with a
+tractable Jacobian determinant. If we define the intermediate variables
+$\z_0=\u$ and $\z_k = T_k(\z_{k-1})$ for $k=1,\ldots,K$, then the
+change-of-variables formula can be applied recursively, yielding
+\[
+\log p(\x)
+=
+\log p_\u(\u)
+-
+\sum_{k=1}^K
+\log \left|\det \nabla T_k(\z_{k-1})\right|.
+\]
+This compositional construction allows complex transformations to be
+obtained by stacking simple building blocks, while keeping likelihood
+evaluation tractable.
+
+
+\paragraph{Training and inference.}
+Normalising flows allow likelihood-based training whenever the inverse
+transformation $T^{-1}$ and the corresponding Jacobian determinant can
+be evaluated. In this case, the likelihood of observations can be
+computed exactly via the change-of-variables formula and the model can
+be trained by maximum likelihood. Depending on the architecture, the
+parametrisation may be expressed either in terms of the forward map
+$T$ or its inverse $T^{-1}$, giving rise to different flow families.
+This dual viewpoint motivates the name \emph{normalising flow}, since
+the transformation can be interpreted either as mapping the base
+distribution to the data distribution or as \emph{normalising} data
+samples back to the base measure.
+
+There is, however, no free lunch: architectures that make sampling
+efficient (i.e.\ evaluating $T$) often lead to expensive likelihood
+evaluation, while those that make likelihood computation efficient
+require more costly sampling. Designing transformations that balance
+expressivity with computational tractability therefore remains the
+central challenge in flow-based modelling. This motivates the
+continuous-flow perspective introduced in the next section, where the
+transformation is defined as the solution of a differential equation
+and density evolution is governed by a tractable instantaneous change
+of variables.
+
+\missing{Include a couple of examples, perhaps using GPs}
+
+\section{Continuous-time flows}
+
+We will consider a continuous version of the flow, where rather than a collection of sequential transformations as before we will implement flows that transform the variables in an infinitesimal manner. To this end, let us consider a stochastic process $z_t$ indexed by the temporal variable $t\in[0,1]$, such that 
+\[\z_0 = \u,
+\qquad
+z_1 = \x.
+\]
+
+Unlike the discrete flows, where the transformation is applied to form one variable to the next, here we will model the temporal evolution of $\z_t$, that is, 
+\[
+\frac{\d\z_t}{\dt} = g_\phi(t,\z_t). 
+\]
+Here, we will require that the function $g_\phi: [0,1] \times \R^D \to \R^D$ is uniformly Lipschitz continuous in $\z$ and continuous in $t$, so that the IDE admits a unique solution. 
+
+\begin{remark}[Neural ordinary differential equations]
+The dynamics above can be interpreted as a Neural ODE. To see this, recall that a deep residual network updates a hidden state through layers of the form
+\[
+\z_{k+1} = \z_k + h\, g_\phi(\z_k,t_k),
+\]
+where $h$ is a small step size and $g_\phi$ is typically implemented
+as a neural network. If we interpret the layer index as a discretised
+time variable $t_k = kh$, this recursion corresponds to a forward
+Euler discretisation of the differential equation
+\[
+\frac{\d \z_t}{\d t} = g_\phi(t,\z_t).
+\]
+In the limit as the number of layers increases and the step size
+$h\to0$, the residual network converges to the continuous-time
+dynamics above. Neural ODEs \cite{chen2018neuralode} therefore provide a continuous-depth analogue of deep networks, where the transformation between input and output is defined implicitly as the solution of a learned dynamical
+system.
+\end{remark}
+
+\paragraph{Evolution of densities.}
+So far we have described how individual samples evolve according to the
+dynamical system
+\[
+\frac{\d \z_t}{\d t} = g_\phi(t,\z_t).
+\]
+A natural question is how the corresponding probability density evolves
+over time. Let $p_t(\z)$ denote the density of $\z_t$. Since the flow
+simply transports probability mass without creating or destroying it,
+the density must satisfy the \emph{continuity equation}
+\begin{equation}
+\label{eq:continuity}
+\partial_t p_t(\z)
++
+\nabla_\z \cdot \big(p_t(\z)\, g_\phi(t,\z)\big)
+=
+0.
+\end{equation}
+This equation expresses conservation of probability mass: the change in
+density at a point is determined by the divergence of the probability
+flux $p_t(\z) g_\phi(t,\z)$.
+
+While eq.~\eqref{eq:continuity} describes the evolution of the full
+density field, it is often more convenient to study the density along
+individual trajectories of the flow. Let $\z_t$ follow the dynamics
+above and consider the time derivative of the log-density along this
+trajectory.
+
+
+Expanding the divergence in eq.~\eqref{eq:continuity} using the product
+rule yields
+\[
+\partial_t p_t(\z)
++
+g_\phi(t,\z)\cdot\nabla_\z p_t(\z)
++
+p_t(\z)\,\nabla_\z\cdot g_\phi(t,\z)
+=
+0.
+\]
+Now consider a trajectory $\z_t$ satisfying
+\[
+\frac{\d \z_t}{\d t} = g_\phi(t,\z_t).
+\]
+By the chain rule, the total derivative of the density along the
+trajectory is
+\[
+\frac{\d}{\d t} p_t(\z_t)
+=
+\partial_t p_t(\z_t)
++
+g_\phi(t,\z_t)\cdot\nabla_\z p_t(\z_t).
+\]
+Substituting this expression into the expanded continuity equation
+gives
+\[
+\frac{\d}{\d t} p_t(\z_t)
++
+p_t(\z_t)\,\nabla_\z\cdot g_\phi(t,\z_t)
+=
+0.
+\]
+Dividing by $p_t(\z_t)$ yields
+\[
+\frac{\d}{\d t} \log p_t(\z_t)
+=
+-\,\nabla_\z\cdot g_\phi(t,\z_t).
+\]
+Finally, recalling that the divergence of a vector field equals the
+trace of its Jacobian,
+\[
+\nabla_\z\cdot g_\phi(t,\z)
+=
+\mathrm{Tr}\!\left(
+\frac{\partial g_\phi}{\partial \z}(t,\z)
+\right),
+\]
+we obtain
+\[
+\frac{\d}{\d t} \log p_t(\z_t)
+=
+- \mathrm{Tr}\!\left(
+\frac{\partial g_\phi}{\partial \z}(t,\z_t)
+\right).
+\]
+
+\begin{remark}[Instantaneous change-of-variables formula]
+The above identity is known as the \emph{instantaneous change-of-variables}
+formula. It can be interpreted as the continuous-time analogue of the
+Jacobian determinant appearing in discrete normalising flows: the
+divergence of the velocity field $g_\phi$ measures the instantaneous
+expansion or contraction of volume elements along the flow. Integrating
+this expression over time yields the log-density at $t=1$, enabling
+likelihood-based training of continuous normalising flows.
+\end{remark}
+ 
+
+
+\paragraph{Continuous vs discrete normalising flows.}
+The formulation above highlights the appeal of continuous normalising
+flows. First, rather than specifying a finite composition of
+transformations $T = T_K \circ \cdots \circ T_1$, the flow is defined
+through the solution of a differential equation, which can be
+interpreted as the limit of infinitely many infinitesimal
+transformations. In practice, the effective number of transformations
+is determined adaptively by the numerical ODE solver, rather than being
+fixed a priori by the architecture.
+
+Second, continuous flows avoid the need to explicitly construct inverse
+maps. Both sampling and density evaluation reduce to solving an initial
+value problem for the state $\z_t$ and the log-density evolution,
+removing the architectural constraints required in discrete flows to
+ensure tractable inverses.
+
+These advantages come with several drawbacks. Solving the ODE typically
+requires many evaluations of the vector field $g_\phi$, making training
+considerably more expensive than in discrete flows. Moreover, the
+computation of the divergence term
+$\mathrm{Tr}(\partial g_\phi/\partial \z)$ can be costly in
+high-dimensional settings and often requires stochastic trace
+estimators. Finally, the accuracy of the model depends on the numerical
+integration scheme, introducing additional computational overhead and
+potential numerical error.
+
+\begin{remark}[Free-form Jacobian of Reversible Dynamics (FFJORD)]
+A major practical difficulty in continuous normalising flows is the
+computation of the divergence term
+$\mathrm{Tr}(\partial g_\phi/\partial \z)$ appearing in the
+instantaneous change-of-variables formula. In high dimensions,
+explicitly forming the Jacobian is prohibitively expensive. The
+FFJORD method \cite{grathwohl2019ffjord} addresses this issue by estimating the trace using
+Hutchinson's stochastic trace estimator,
+\[
+\mathrm{Tr}(A) = \mathbb{E}_{\epsilon}[\epsilon^\top A \epsilon],
+\]
+which allows the divergence to be computed using Jacobian--vector
+products obtainable through automatic differentiation. This enables
+the use of unrestricted neural vector fields $g_\phi$ while keeping
+the computational cost manageable.
+\end{remark}
+
+\paragraph{Towards flow matching.}
+While continuous normalising flows provide a flexible framework for
+density modelling, their training remains computationally demanding due
+to the need to solve differential equations and evaluate divergence
+terms during optimisation. This has motivated alternative formulations
+that retain the continuous-time transport perspective while simplifying
+the learning problem. In particular, recent approaches propose to learn
+the velocity field directly by matching it to a prescribed probability
+flow between simple and target distributions. This idea underlies
+\emph{flow matching}, which we introduce next.
+
+\section{Flow matching}
+
+Rather than defining the transformation through an explicit, parametric, map $T$ or
+through the solution of a continuous normalising flow, the flow matching perspective first specifies a so-called probability path connecting a
+simple base distribution to the target distribution. Let
+$\{p_t\}_{t\in[0,1]}$ denote a family of densities such that
+\[
+p_0(\z) = p_\u(\z), 
+\qquad
+p_1(\z) = p(\z),
+\]
+which interpolates between the base and target measures.
+
+To realise such a path, consider a time-dependent flow map
+$\phi_t:\R^D \to \R^D$ that transports samples over time. As in the
+previous section, the flow $\phi$ is defined as the solution of the ODE
+\[
+\frac{\d}{\d t}\phi_t(\u)
+=
+v(t,\phi_t(\u)),
+\qquad
+\phi_0(\u)=\u,
+\]
+where $v:[0,1]\times\R^D\to\R^D$ is a time-dependent vector field. For
+a sample $\u\sim p_\u$, the trajectory $\z_t=\phi_t(\u)$ describes the
+evolution of the particle under the velocity field $v$, and the
+distribution of $\z_t$ evolves along the prescribed probability path
+$p_t$. As before, we say that the velocity field $v$ \emph{induces} the
+probability path $p_t$ if the pair $(p_t,v)$ satisfies the continuity
+equation.
+
+Flow matching methods do not parametrise the flow $\phi_t$ directly.
+Instead, they learn a parametrised vector field $v_\theta(t,\z)$ whose
+induced dynamics transport the base distribution to the target
+distribution. Once the vector field is learned, the corresponding flow
+$\phi_t$ is obtained by solving the associated ODE.
+
+\paragraph{Training loss.} To learn the vector field, \cite{lipman2023flowmatching} proposes to train a parametric model $\v_\theta(x,t)$ using the flow-matching objective given by 
+\begin{equation}
+    \label{eq:FM_loss}    
+    \cL_\text{FM}(\theta) \defeq \mathbb{E}_{t,p_t(x)}||\v_\theta(x,t) - \v_t(\x)||^2,
+\end{equation}
+where $\v_t(\x)$ is a vector field that induces the desired probability path. Observe that this is a supervised learning objective that assumes that we have access to the valid field $\v_t(\x)$, and that the parametric field $\v_\theta(x,t)$ is \emph{regressed} onto $\v_t(\x)$. This means that if $ \cL_\text{FM}(\theta) = 0$, then $\v_\theta(x,t)$ also generates the desired probability path. 
+
+\begin{remark}[On the expectation in the flow-matching loss]
+The expectation in eq.~\eqref{eq:FM_loss} reflects that the objective
+is defined over the entire probability path. Rather than matching the
+velocity field at a single point in time, the loss averages the
+discrepancy between the parametric field $\v_\theta(\x,t)$ and the
+target field $\v_t(\x)$ across both time and space, weighted by the
+probability density $p_t(\x)$. Intuitively, this encourages the learned
+vector field to reproduce the correct transport dynamics along the
+whole path connecting the base and target distributions, while placing
+more emphasis on regions where probability mass is concentrated.
+\end{remark}
+
+Though interpretable and simple, the FM training loss is rather naive: it is intractable in it own since neither $p_t$ nor $\v_t$ area available. In particular, there are a number of choices of probability paths such that $p_1(\x) = p(\x)$, and also several vector fields that can (perhaps redundantly) move mass according the source and target measures. The following approach takes a conditional perspective to circumvent the problems presented by the FM loss. 
+
+\paragraph{Conditional probability paths.} Consider a particular data sample $\x_1$, and construct the conditional probability  path $p_t(\x \mid \x_1) $ with the boundary conditions\footnote{We start conditioning the path here to a terminal value $\x_1$, however, the conditioning statement can be much more flexible than that. We will revisit more expressive conditioning elements later in this section.}
+\begin{align}
+    t=0 : p_0(\x \mid \x_1) &= p(\x)\quad \leftarrow \quad \text{the source distribution}\\
+    t=1 : p_1(\x \mid \x_1) &= \cN(\x \mid \x_1,\sigma^2\I) \quad \leftarrow \quad \text{with small } \sigma^2.
+\end{align}
+Conditional to the terminal sample, the evolution of the distribution above describes how samples from the source distribution flow towards a neighbourhood around $\x_1$ at $t=1$, rather than transporting mass directly toward the full data distribution. These trajectories induced by each datapoint can be then averaged over the conditioning endpoint $\x_1 \sim p(\x_1)$ to recover the marginal probability path. That is, 
+\begin{equation}
+    \label{eq:marginal_prob_path}
+    p_t(\x) = \int p_t(\x \mid \x_1) q(\x_1)\d\x_1.
+\end{equation}
+The initial and terminal conditions for this marginal probability path are 
+\begin{align}
+    t=0 : p_0(\x) &=  \int p(\x) q(\x_1)\d\x_1 = p(\x)\\
+    t=1 : p_1(\x) &=  \int p_t(\x \mid \x_1) q(\x_1)\d\x_1 =  \cN(\x \mid \x_1,\sigma^2\I) \ast q(\x),
+\end{align}
+meaning that if $\sigma \ll 1$, then $p_1(\x)\approx q(\x)$.
+
+We now need to identify a corresponding vector field that produces the above probability path. \cite{lipman2023flowmatching} identifies the following result. 
+
+\begin{theorem}[From conditional to marginal vector field]
+    \label{thm:lipman_VF}
+    The marginal vector field defined by 
+    \begin{equation}
+        \label{eq:marginal_vactor_field}
+        \v_t(\x) = \int \v_t(\x \mid \x_1) 
+        \frac{p_t(\x \mid \x_1) q(\x_1)}{p_t(\x)}\,\d\x_1, 
+    \end{equation}
+    generates the marginal probability path in 
+    eq.~\eqref{eq:marginal_prob_path}.
+\end{theorem}
+
+\begin{proof}
+The proof follows by showing that the marginal pair 
+$ p_t(\x)$ and $\v_t(\x)$ also satisfy the continuity equation.
+
+\begin{align*}
+    \partial_t p_t(\x) 
+    &= 
+    \int \partial_t p_t(\x \mid \x_1)\, q(\x_1)\d\x_1 
+    &&\text{(eq.~\eqref{eq:marginal_prob_path} and swap diff/integral)} \\[4pt]
+    &= 
+    - \int \nabla_\x \cdot 
+    \big[ \v_t(\x \mid \x_1) p_t(\x \mid \x_1) \big] 
+    q(\x_1)\d\x_1 
+    &&\text{(conditional continuity equation)} \\[4pt]
+    &= 
+    - \nabla_\x \cdot 
+    \left[\int 
+    \v_t(\x \mid \x_1) p_t(\x \mid \x_1) 
+    q(\x_1)\d\x_1 \right] 
+    &&\text{(swap diff/integral)} \\[4pt]
+    &= 
+    - \nabla_\x \cdot 
+    \left[
+    p_t(\x)\!
+    \int \v_t(\x \mid \x_1)
+    \frac{p_t(\x \mid \x_1) q(\x_1)}{p_t(\x)}
+    \d\x_1
+    \right] 
+    &&\text{(multiplying and dividing by $p_t(\x)$)} \\[4pt]
+    &= 
+    - \nabla_\x \cdot 
+    \big[p_t(\x)\v_t(\x)\big]
+    &&\text{(eq.~\eqref{eq:marginal_vactor_field})} .
+\end{align*}
+
+Hence $p_t(\x)$ and $\v_t(\x)$ satisfy the continuity equation,
+which implies that $\v_t(\x)$ generates the marginal probability
+path. The interchange of derivatives and integrals above is justified
+under standard regularity assumptions (e.g., smooth vector fields and
+integrable densities), ensuring the operations are well defined.
+\end{proof}
+
+\paragraph{Conditional flow matching.} Although Theorem \ref{thm:lipman_VF} provides a meaningful construction for the marginal vector field, this is again intractable as it depends on the data distribution $q(\cdot)$. However, we return to the flow-matching loss introduced above and extend a it to be implemented with conditional vector fields. This yields an alternative loss termed conditional flow matching defined by 
+
+\begin{equation}
+    \label{eq:CFM_loss}    
+    \cL_\text{CFM}(\theta) \defeq \mathbb{E}_{t,q(\x_1), p_t(x \mid x_1)}||\v_\theta(x,t) - \v_t(\x \mid \x_1)||^2,
+\end{equation}
+
+Critically, this objective is tractable since it only requires sampling
+from quantities that are directly available during training. In
+particular, data points $\x_1 \sim q(\x_1)$ can be drawn from the
+dataset, samples $\x \sim p_t(\x \mid \x_1)$ can be generated from the
+chosen conditional probability path, and the corresponding conditional
+vector field $\v_t(\x \mid \x_1)$ is analytically specified by the path
+construction. As a result, the expectation in
+eq.~\eqref{eq:CFM_loss} can be estimated using Monte Carlo samples
+without requiring explicit knowledge of the marginal density $p_t(\x)$
+or the marginal vector field $\v_t(\x)$.
+
+The result linking this loss to the (marginal) FM loss is presented as follows 
+
+\begin{theorem}
+    If $p_t(\x)>0,\, \forall \x\in\R^D, t\in[0,1]$, then, $\cL_\text{FM}(\theta) = \cL_\text{CFM}(\theta), \forall \theta, $ up to constants that are independent of $\theta$. As a consequence, we have 
+    \[
+    \nabla_\theta \cL_\text{FM}(\theta) = \nabla_\theta\cL_\text{CFM}(\theta),
+    \]
+    therefore, the flow-matching model can be trained by stocastich gradient descent on the tractable $\cL_\text{CFM}(\theta)$.
+\end{theorem}
+
+\begin{proof}
+    See \cite[Appendix]{lipman2023flowmatching}.
+\end{proof}
+
+\paragraph{Choices of the probability path and the associated vector field.} An alternative for the conditional probability path is as follows
+\begin{equation}
+    \label{eq:conditional_Gaussian_PP}
+    p_t(\x \mid \x_1) = \cN(\x ; \mu_t(\x_1), \sigma_t^2(\x_1)\I), 
+\end{equation}
+with $\mu_t$ and $\sigma_t$ time-dependent functions. We can then set the boundary conditions: 
+\begin{align}
+    t=0 &:  \mu_0=0,\,\sigma_t= 1\, \Rightarrow p_0(\x) = \cN(\x \mid 0,\I)\\
+    t=1 &: \mu_0=\x_1,\,\sigma_t= \sigma_\text{min}\, \Rightarrow p_(\x) = \cN(\x \mid \x_1,\sigma^2_\text{min}\I),
+\end{align}
+which means that the probability path (conditioned on an observation $\x_1$) goes from a standard normal on $\R^D$ to a Gaussian concentrated on $\x_1$. 
+
+Among multiple possible flows that generate that probability path, we choose
+\begin{equation}
+    \label{eq:conditional_Gaussian_flow}
+    \phi(\x) = \mu_t(\x_1) + \sigma_t(\x_1)\x; \quad \x\sim\cN(0,\I),
+\end{equation}
+where it is clear that eq.~\eqref{eq:conditional_Gaussian_flow} generates eq.~\eqref{eq:conditional_Gaussian_PP}. 
+
+
+\begin{proposition}
+    \label{prop:conditional_vector_field}
+    The conditional vector field given by 
+    \[
+    \v_t (\x \mid \x_1) = \mu_t'(\x_1) + \frac{\sigma_t'(\x_1)}{\sigma_t(\x_1)}\left(\x  - \mu_t(\x_1)\right),
+    \]
+    generates the flow in eq.~\eqref{eq:conditional_Gaussian_flow}.
+\end{proposition}
+\begin{proof}
+    Since the governing ODE is 
+\(
+\frac{\d}{\dt}\phi_t(\x) = \v_t(\phi_t(\x) \mid \x_1), 
+\)
+the proof proceeds by calculating the derivative of $\phi_t(\x)$ and expressing it as a function of the the same quantity. From eq.~\eqref{eq:conditional_Gaussian_flow} we know that 
+\[
+\x = \frac{\phi_t(\x) - \mu_t(\x_1)}{\sigma_t(\x_1)},
+\]
+combining this with the derivative of eq.~\eqref{eq:conditional_Gaussian_flow}, we have
+\begin{align*}
+    \frac{\d}{\dt}\phi_t(\x) 
+    &= 
+    \mu_t'(\x_1) + \sigma_t'(\x_1)\x,\\
+    &= 
+    \mu_t'(\x_1) + \sigma_t'(\x_1)\frac{\phi_t(\x) - \mu_t(\x_1)}{\sigma_t(\x_1)},
+\end{align*}
+thus concluding the proof.
+
+    
+\end{proof}
+
+To construct a particular flow, let us consider the OT between the source $\cN(0,\I)$ and the (conditional) target $\cN(\x_1,\sigma^2_\text{min}\I)$. Recall that the geodesic interpolation is 
+\begin{align*}
+    \phi_t(\x) 
+    &=  (1-t)\phi_0(\x) + t\phi_1(\x) \\
+    &=  (1-t)\x + t(\x_1 + \x\sigma_\text{min}) \\ 
+    &=  (1-t(1-\sigma_\text{min}))\x + t\x_1.
+\end{align*}
+This allows for identifying the time-indexed mean and variance as---see eq.~\eqref{eq:conditional_Gaussian_flow} 
+\begin{align*}
+    \mu_t(\x_1) &= t\x_1,\quad \text{going from $0$ to $\x_1$}\\
+    \sigma_t(\x_1) &= 1-t(1-\sigma_\text{min}), \quad \text{going from $1$ to $\sigma_\text{min}$}.
+\end{align*}
+Lastly, evaluating these expressions into Prop.~\ref{prop:conditional_vector_field} gives the conditional vector field asºº
+\begin{align}
+\v_t(\x \mid \x_1)
+&=
+\frac{\x_1 - (1-\sigma_{\min})\,\x}
+     {1 - t(1-\sigma_{\min})}.
+\end{align}
+
+
+
