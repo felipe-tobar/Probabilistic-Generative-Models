@@ -5,91 +5,92 @@
 
 \paragraph{Motivation.}
 
-We want to define a distribution over $\x\in\R^D$. Rather than parametrising it directly, we will express $\x$ as a transformation of a random vector $\u$, that is
-\[\x = T(\u), \qquad \u \sim p_\u(\u),\]
-where both the map and the based measure might have parameters, say, $\phi$ and $\psi$ respectively, that may define the resulting measure.
+We aim to define a distribution over $\x\in\R^D$. Rather than parametrising it directly, we will express $\x$ as a transformation of a random vector $\u$. That is,
+\[\x = T(\u), \qquad \u \sim p_\u(\u).\] If the map and the base (or source) measure have parameters, say, $\phi$ and $\psi$ respectively, they will be the parameters of the target measure denoted $p(\x)$.
 
 Formally, the induced model will be the pushforward measure of $p_\u$ through $T$, that is,
-\[
-\int_A p(\x)\, d\x
+\begin{equation}
+    \label{eq:push_forward_density}
+    \int_A p(\x)\, d\x
 =
 \int_{T^{-1}(A)} p_\u(\u)\, d\u ,
 \qquad
-\forall A \subset \mathbb{R}^D \text{ measurable}.
-\]
+\forall A \subset \mathbb{R}^D \text{ measurable}.    
+\end{equation}
 
-This is somehow an extension of the setting we adopted in the variational autoencoder formulation, where the base distribution was assumed to be Gaussian, the transformation $T$ a neural network, and the learning approach was that of variational inference. The extensions to be considered in this chapter and the next will be mainly in two directions. First, by imposing continuity and invertibility conditions of the map, the resulting model can be trained via maximum likelihood, provided the inverse of the map can be computed. Second, we will consider an approach where the map is broken down in stages, initially considering a compositional construction of the map and then an a continuous version; we will see that this perspective calls for an entirely new learning strategy. Third, we will study a deep version of the variational autoencoder formulation, where we will consider a collection of latent spaces  the provide controlled and expressive data representations, to be solved---akin to the original VAE--- by means of VI. 
+
+This is somehow an extension of the setting we adopted in the variational autoencoder formulation, where the base distribution was assumed to be Gaussian, the transformation $T(\cdot)$ a neural network, and the learning paradigm was variational inference. The extensions to be considered in this chapter will take two directions. First, by imposing continuity and invertibility conditions of the map, the resulting model can be trained via maximum likelihood, provided the inverse of the map can be computed. Second, we will consider an approach where the map is broken down in stages, initially considering a compositional construction of the map and then an a continuous version; we will see that this perspective calls for an entirely new learning strategy. 
 
 
 \section{Normalising flows}
 
-We first consider a setting imposing a clear (and arguably restrictive) condition on $T$: we will require it to be a diffeomorphism. A definition is given as follows as a reminder.
+We will now focus on a case characterised by a clear (and arguably restrictive) condition on $T$: we will require it to be a diffeomorphism. A definition is given as follows as a reminder.
 
 \begin{definition}[Diffeomorphism]
-Let $T:\mathbb{R}^D \to \mathbb{R}^D$ be a map. We say that $T$ is a \emph{diffeomorphism} if it is bijective, continuously differentiable, and its inverse $T^{-1}$ is also continuously differentiable. Equivalently, $T$ is a $C^1$ bijection with a $C^1$ inverse. In particular, the Jacobian matrix $\nabla T(\u)$ exists everywhere and is non-singular, i.e.\ $\det \nabla T(\u) \neq 0$ for all $\u \in \mathbb{R}^D$.
+Let $T:\mathbb{R}^D \to \mathbb{R}^D$ be a map. We say that $T$ is a \emph{diffeomorphism} if it is bijective, continuously differentiable, and its inverse $T^{-1}$ is also continuously differentiable. Equivalently, $T$ is a $\cC^1$ bijection with a $\cC^1$ inverse. In particular, the Jacobian matrix $\nabla T(\u)$ exists everywhere and is non-singular, i.e.\ $\det \nabla T(\u) \neq 0$ for all $\u \in \mathbb{R}^D$.
 \end{definition}
 
-The comment regarding the fact that the considered map $T$ is bijective with a well defined Jacobian is crucial in our setting. This is because such setting allows us to express the induced density over $\x = T(\u)$ via the change-of-variables theorem in terms of the base measure $p_\u$ as follows 
+The comment about $T$ being a bijective map with a well defined Jacobian is crucial in this setting, as that enables to  us to express the induced density over $\x = T(\u)$ via the change-of-variables theorem in terms of the base measure $p_\u$ as follows 
 \begin{equation}
-\label{eq:CoV}    
+\label{eq:CoV_invT}    
 p(\x)
 =
 p_\u\!\left(T^{-1}(\x)\right)
 \left|
 \det \nabla T^{-1}(\x)
-\right|.    
+\right|,
 \end{equation}
-
-Equivalently, writing $\x = T(\u)$, the density can be expressed as
-\[
+or equivalently, as a function of the source variable $\u$:
+\begin{equation}
+\label{eq:CoV_T}    
 p(\x)
 =
 p_\u(\u)
 \left|
 \det \nabla T(\u)
 \right|^{-1}.
-\]
-
-There is a number of remarks to be mentioned based on this. 
+\end{equation}
 
 
-\begin{remark}[Closed form likelihood]
-This identity is fundamental in normalising flows, as it allows the
-likelihood of observations $\x$ to be computed exactly, provided that
-both the inverse map $T^{-1}$ and the determinant of the Jacobian of
-$T$ (or its inverse) can be evaluated efficiently.
-\end{remark}
+Some relevant remarks mentioned as follows. 
 
 \begin{remark}[Mass-preserving warping]
-The map $T$ can be interpreted as a warping of the ambient space
-$\cX$, which reorganises the probability mass of $p_\u$ into the
-target density $p$. Since probability mass must be preserved, the
-transformation only \emph{transports} mass; it neither creates nor
-destroys it. Therefore, local changes in volume induced by the map must be
-reflected in the resulting density, and this is precisely the role of the
-Jacobian factor $\det \nabla T^{-1}(\x)$ in eq.~\eqref{eq:CoV} above. If the transformation locally compesses the space, the
-density must increase accordingly to preserve mass; conversely, if
-the space is locally expanded, the density must decrease.
+The map $T$ can be interpreted as a warping of the ambient space $\cX$, which reorganises the probability mass of $p_\u$ into the target density $p$. Since probability mass must be preserved, the transformation only \emph{transports} mass; it neither creates nor destroys it. Therefore, local changes in volume induced by the map must be reflected in the resulting density, and this is precisely the role of the Jacobian factor $\det \nabla T^{-1}(\x)$ in eq.~\eqref{eq:CoV_invT} above. If the transformation locally compesses the space, the density must increase accordingly to preserve mass; conversely, if the space is locally expanded, the density must decrease.
 \end{remark}
+
+
+\begin{remark}[Training: Closed form likelihood]
+The identity in eq.~\eqref{eq:CoV_invT} allows for the likelihood, given observations $\x$, to be calculated in closed form, provided that both the inverse map $T^{-1}$ and the determinant of its Jacobian can be evaluated.
+\end{remark}
+
+\begin{remark}[Sampling]
+Under the proposed methodology, generating samples from $\x\sim p(\x)$ is direct by first sampling $\u\sim p_\u$, and then evaluating $\x = T(\u)$. This can be done efficiently if the source measure is a simple density (e.g., Gaussian or uniform), and if the map $T$ can be evaluated.
+\end{remark}
+
+\begin{remark}[Normalising flow]
+Since in either case both the direct map $T:\u\to\x$ when the aim is sampling, or the reverse one $T^{-1}:\x\to\u$ when the aim is learning. Since the case is usually the latter, the inverse map is usually the parametrised via $\phi=T^{-1}$, and the base measure is considered to be Gaussian. Therefore, the role of $\phi$ is to convert an arbitrary data distribution $p(\x)$ into a Normal variable, hence the name for $\phi$ as normalising flow.
+\end{remark}
+
+
+
 
 \paragraph{Construction of expressive flows.}
 
-A natural questions that comes to mind at this stage is how expressive this construction is, in other words, given an arbitrary pair of densities $p_\u(\u), p(\x)$, does a map $T$ pushing the former to the latter always exist? For the scalar case, i.e., $\x\in\R$, verifying this is straightforward: when the densities are smooth, we can consider the mononote rearrangement given by 
+At this stage, it is natural to ask how expressive the normalising flow construction is. In other words, given an arbitrary pair of densities $p_\u(\u), p(\x)$, does a map $T$ pushing the former to the latter always exist? For the scalar case, i.e., $\x\in\R$, verifying this is straightforward: when the densities are smooth, we can consider the mononote rearrangement given by 
 \begin{equation}
     T(\u) = F^{-1}_\x(F_\u(\u)),
 \end{equation}
 where $F_\x$ and $F_\u$ are the cumulative distribution functions of $\x$ and $\u$ respectively. Intuitively, this flow is pushing the mass from $p_\u$ to a uniform distribution using $F_\u(\cdot)$, and then pushing it from there to $p$ via $F^{-1}_\x(\cdot)$. 
 
-Regarding the non-scalar case, recall that a map fulfilling eq.\eqref{eq:CoV} is always guaranteed to exist based on the result we saw on the OT chapter (Brenier Theorem), that states that the OT between two a.c. measures under the Euclidean ground cost always exist, is unique, and (critical in this setting) is the gradient of a convex potential (which ensures invertibility). 
+Regarding the non-scalar case, provided that $p_\u$ is absolutely continuous wrt the Lebesgue measure a map fulfilling eq.~\eqref{eq:push_forward_density} is guaranteed to exist based on Brenier Theorem (see the OT chapter). this result states that the OT between two a.c. measures under the Euclidean ground cost always exist, is unique, and (critical in the normalising flow setting) is the gradient of a convex potential (which ensures invertibility). 
 
-Despite Brenier's theoretical guarantees, further insight into the expressivity of the flow approach can be gained by trying to adapt the monotone arrangement concept to the vector-valued case. Naively, the monotone arrangement cannot be applied to vectors because, although the multivariate CDF is well defined and given by 
+In addition to Brenier's theoretical guarantees, further insight into the expressivity of normalising flows can be gained by trying to adapt the monotone arrangement concept to the vector-valued case. Let us first observe that the monotone arrangement cannot be applied to vectors because, although the multivariate CDF is well defined and given by 
 \begin{equation}
     F_\x(\x) = \int_{(-\infty,x_1)\times\cdots\times (-\infty,x_D)}p(\x)\d\x,
 \end{equation}
-they are not invertible and this a monotone arrangement cannot be constructed (there is, in particular, no concept of motononicity in $\R^D$). However, we can consider the triangular flow given as
+it is not invertible and, thus, a monotone arrangement cannot be constructed (there is, in particular, no concept of motononicity in $\R^D$).
 
-However, we can consider the triangular flow given by the
-\emph{Knothe--Rosenblatt rearrangement}. In this construction the
+An alternative is to consider the triangular flow given by the \emph{Knothe--Rosenblatt rearrangement}---see \cite[Ch.~2]{villani2009optimal}. In this construction the
 transport map is triangular, meaning that each coordinate depends
 only on the current and previous ones,
 \[
@@ -156,21 +157,18 @@ simply the product of its diagonal entries,
 \frac{\partial T_k}{\partial u_k}(u_{1:k}).
 \]
 As a result, the Jacobian determinant required in
-eq.~\eqref{eq:CoV} can be computed efficiently, which is a key
-requirement for likelihood-based training in normalising flows.
-Moreover, since the inverse of a triangular map is also triangular,
-the same computational advantage holds when evaluating the likelihood
-via the inverse transformation.
+eq.~\eqref{eq:CoV_T} can be computed efficiently, which facilitates training. Additionally, since the inverse of a triangular map is also  triangular, the same computational advantage holds when evaluating the likelihood
+via the inverse transformation in eq.~\eqref{eq:CoV_invT}.
 
 
-A natural way to construct expressive flows is to build the map as a
-composition of simpler diffeomorphisms. Concretely, one writes
+Another natural way to construct expressive flows is to build the map as a
+composition of simpler diffeomorphisms. Concretely, write
 \[
 T = T_K \circ \cdots \circ T_1,
 \]
 where each $T_k : \R^D \to \R^D$ is an invertible transformation with a
 tractable Jacobian determinant. If we define the intermediate variables
-$\z_0=\u$ and $\z_k = T_k(\z_{k-1})$ for $k=1,\ldots,K$, then the
+$\z_0=\u$, $\z_k = T_k(\z_{k-1})$ for $k=1,\ldots,K$, and $\z_K=\x$, then the
 change-of-variables formula can be applied recursively, yielding
 \[
 \log p(\x)
@@ -185,74 +183,43 @@ obtained by stacking simple building blocks, while keeping likelihood
 evaluation tractable.
 
 
-\paragraph{Training and inference.}
-Normalising flows allow likelihood-based training whenever the inverse
-transformation $T^{-1}$ and the corresponding Jacobian determinant can
-be evaluated. In this case, the likelihood of observations can be
-computed exactly via the change-of-variables formula and the model can
-be trained by maximum likelihood. Depending on the architecture, the
-parametrisation may be expressed either in terms of the forward map
-$T$ or its inverse $T^{-1}$, giving rise to different flow families.
-This dual viewpoint motivates the name \emph{normalising flow}, since
-the transformation can be interpreted either as mapping the base
-distribution to the data distribution or as \emph{normalising} data
-samples back to the base measure.
-
-There is, however, no free lunch: architectures that make sampling
-efficient (i.e.\ evaluating $T$) often lead to expensive likelihood
-evaluation, while those that make likelihood computation efficient
-require more costly sampling. Designing transformations that balance
-expressivity with computational tractability therefore remains the
-central challenge in flow-based modelling. This motivates the
-continuous-flow perspective introduced in the next section, where the
-transformation is defined as the solution of a differential equation
-and density evolution is governed by a tractable instantaneous change
-of variables.
-
 \missing{Include a couple of examples, perhaps using GPs}
 
 \section{Continuous-time flows}
 
-We will consider a continuous version of the flow, where rather than a collection of sequential transformations as before we will implement flows that transform the variables in an infinitesimal manner. To this end, let us consider a stochastic process $z_t$ indexed by the temporal variable $t\in[0,1]$, such that 
+We now consider a continuous version of the flow, where rather than a collection of sequential transformations as in the compositional construction, we will implement flows that model the (infinitesimal) evolution of the variables. To this end, let us consider a stochastic process $z_t$ indexed by the temporal variable $t\in[0,1]$, such that 
 \[\z_0 = \u,
 \qquad
 z_1 = \x.
 \]
 
-Unlike the discrete flows, where the transformation is applied to form one variable to the next, here we will model the temporal evolution of $\z_t$, that is, 
-\[
-\frac{\d\z_t}{\dt} = g_\phi(t,\z_t). 
-\]
-Here, we will require that the function $g_\phi: [0,1] \times \R^D \to \R^D$ is uniformly Lipschitz continuous in $\z$ and continuous in $t$, so that the IDE admits a unique solution. 
+Unlike discrete flows, where the transformation is applied from one variable to the next, we now model the temporal evolution of $\z_t$, that is, 
+\begin{equation}
+    \label{eq:ODE}
+    \frac{\d\z_t}{\dt} = g_\phi(t,\z_t).   
+\end{equation}
+ Here, we will require that the function $g_\phi: [0,1] \times \R^D \to \R^D$ is uniformly Lipschitz continuous in $\z$ and continuous in $t$, so that the ODE admits a unique solution. Furthermore, we will refer to the function $g_\phi(\cdot,\cdot)$ as \emph{velocity field}.
 
 \begin{remark}[Neural ordinary differential equations]
 The dynamics above can be interpreted as a Neural ODE. To see this, recall that a deep residual network updates a hidden state through layers of the form
 \[
-\z_{k+1} = \z_k + h\, g_\phi(\z_k,t_k),
+\z_{k+1} = \z_k + h\, g_\phi(t_k, \z_k),
 \]
-where $h$ is a small step size and $g_\phi$ is typically implemented
-as a neural network. If we interpret the layer index as a discretised
-time variable $t_k = kh$, this recursion corresponds to a forward
+where $h$ is a small step size and $g_\phi$ is typically implemented as a neural network. If we interpret the layer index as a discretised time variable $t_k = kh$, this recursion corresponds to a forward
 Euler discretisation of the differential equation
 \[
 \frac{\d \z_t}{\d t} = g_\phi(t,\z_t).
 \]
-In the limit as the number of layers increases and the step size
+In the limit, as the number of layers increases and the step size
 $h\to0$, the residual network converges to the continuous-time
 dynamics above. Neural ODEs \cite{chen2018neuralode} therefore provide a continuous-depth analogue of deep networks, where the transformation between input and output is defined implicitly as the solution of a learned dynamical
 system.
 \end{remark}
 
 \paragraph{Evolution of densities.}
-So far we have described how individual samples evolve according to the
-dynamical system
-\[
-\frac{\d \z_t}{\d t} = g_\phi(t,\z_t).
-\]
-A natural question is how the corresponding probability density evolves
-over time. Let $p_t(\z)$ denote the density of $\z_t$. Since the flow
+The ODE in  eq.~\eqref{eq:ODE} describes how individual samples evolve. A natural question, however, is how the corresponding probability density evolves over time based on those dynamics. Let $p_t(\z)$ denote the density of $\z_t$. Since the flow
 simply transports probability mass without creating or destroying it,
-the density must satisfy the \emph{continuity equation}
+the density must satisfy the \emph{continuity equation} \cite[Ch.~5]{villani2009optimal}
 \begin{equation}
 \label{eq:continuity}
 \partial_t p_t(\z)
@@ -265,12 +232,7 @@ This equation expresses conservation of probability mass: the change in
 density at a point is determined by the divergence of the probability
 flux $p_t(\z) g_\phi(t,\z)$.
 
-While eq.~\eqref{eq:continuity} describes the evolution of the full
-density field, it is often more convenient to study the density along
-individual trajectories of the flow. Let $\z_t$ follow the dynamics
-above and consider the time derivative of the log-density along this
-trajectory.
-
+While eq.~\eqref{eq:continuity} describes the evolution of the full density field, understanding the change of the density along individual trajectories of the flow is insightful. To this end, we will let $\z_t$ follow the dynamics above and inspect the time derivative of the log-density along this trajectory.
 
 Expanding the divergence in eq.~\eqref{eq:continuity} using the product
 rule yields
@@ -330,77 +292,34 @@ we obtain
 \]
 
 \begin{remark}[Instantaneous change-of-variables formula]
-The above identity is known as the \emph{instantaneous change-of-variables}
-formula. It can be interpreted as the continuous-time analogue of the
-Jacobian determinant appearing in discrete normalising flows: the
-divergence of the velocity field $g_\phi$ measures the instantaneous
-expansion or contraction of volume elements along the flow. Integrating
-this expression over time yields the log-density at $t=1$, enabling
-likelihood-based training of continuous normalising flows.
+The above identity is known as the \emph{instantaneous change-of-variables} formula. It can be interpreted as the continuous-time analogue of the Jacobian determinant appearing in discrete normalising flows: the divergence of the velocity field $g_\phi$ measures the instantaneous expansion or contraction of volume elements along the flow.
 \end{remark}
  
 
 
 \paragraph{Continuous vs discrete normalising flows.}
-The formulation above highlights the appeal of continuous normalising
-flows. First, rather than specifying a finite composition of
-transformations $T = T_K \circ \cdots \circ T_1$, the flow is defined
-through the solution of a differential equation, which can be
-interpreted as the limit of infinitely many infinitesimal
-transformations. In practice, the effective number of transformations
-is determined adaptively by the numerical ODE solver, rather than being
-fixed a priori by the architecture.
+The formulation above highlights the appeal of continuous normalising flows. First, rather than specifying a finite composition of transformations $T = T_K \circ \cdots \circ T_1$, the flow is defined through the solution of a differential equation, which can be interpreted as the limit of infinitely many infinitesimal transformations. In practice, the effective number of transformations is determined adaptively by the numerical ODE solver, rather than being fixed a priori by the architecture.
 
-Second, continuous flows avoid the need to explicitly construct inverse
-maps. Both sampling and density evaluation reduce to solving an initial
-value problem for the state $\z_t$ and the log-density evolution,
-removing the architectural constraints required in discrete flows to
-ensure tractable inverses.
+Second, continuous flows avoid the need to explicitly construct inverse maps. Both sampling and density evaluation reduce to solving an initial value problem for the state $\z_t$ and the log-density evolution, removing the structural constraints required in discrete flows to ensure the existence (and tractability) of inverses.
 
-These advantages come with several drawbacks. Solving the ODE typically
-requires many evaluations of the vector field $g_\phi$, making training
-considerably more expensive than in discrete flows. Moreover, the
-computation of the divergence term
-$\mathrm{Tr}(\partial g_\phi/\partial \z)$ can be costly in
-high-dimensional settings and often requires stochastic trace
-estimators. Finally, the accuracy of the model depends on the numerical
-integration scheme, introducing additional computational overhead and
-potential numerical error.
+These advantages come with some drawbacks. Solving the ODE typically requires many evaluations of the vector field $g_\phi$, making training considerably more expensive than in discrete flows. Moreover, the computation of the divergence term $\mathrm{Tr}(\partial g_\phi/\partial \z)$ can be costly in high-dimensional settings and often requires stochastic trace estimators. Finally, the accuracy of the model depends on the numerical integration scheme, introducing additional computational overhead and potential numerical error.
 
 \begin{remark}[Free-form Jacobian of Reversible Dynamics (FFJORD)]
-A major practical difficulty in continuous normalising flows is the
-computation of the divergence term
-$\mathrm{Tr}(\partial g_\phi/\partial \z)$ appearing in the
-instantaneous change-of-variables formula. In high dimensions,
-explicitly forming the Jacobian is prohibitively expensive. The
-FFJORD method \cite{grathwohl2019ffjord} addresses this issue by estimating the trace using
-Hutchinson's stochastic trace estimator,
+A major practical difficulty in continuous normalising flows is the computation of the divergence term $\mathrm{Tr}(\partial g_\phi/\partial \z)$ appearing in the instantaneous change-of-variables formula. In high dimensions, explicitly forming the Jacobian is prohibitively expensive. The FFJORD method \cite{grathwohl2019ffjord} addresses this issue by estimating the trace using Hutchinson's stochastic trace estimator,
 \[
 \mathrm{Tr}(A) = \mathbb{E}_{\epsilon}[\epsilon^\top A \epsilon],
 \]
-which allows the divergence to be computed using Jacobian--vector
-products obtainable through automatic differentiation. This enables
-the use of unrestricted neural vector fields $g_\phi$ while keeping
-the computational cost manageable.
+which allows the divergence to be computed using Jacobian--vector products obtainable through automatic differentiation. This enables the use of unrestricted neural vector fields $g_\phi$ while keeping the computational cost manageable.
 \end{remark}
 
-\paragraph{Towards flow matching.}
-While continuous normalising flows provide a flexible framework for
-density modelling, their training remains computationally demanding due
-to the need to solve differential equations and evaluate divergence
-terms during optimisation. This has motivated alternative formulations
-that retain the continuous-time transport perspective while simplifying
-the learning problem. In particular, recent approaches propose to learn
-the velocity field directly by matching it to a prescribed probability
-flow between simple and target distributions. This idea underlies
-\emph{flow matching}, which we introduce next.
+We next review an alternative formulation to specify an appropriate flow $\phi$, by directly learning the velocity field through matching it to a prescribed probability flow between simple and target distributions.
 
 \section{Flow matching}
 
-Rather than defining the transformation through an explicit, parametric, map $T$ or
-through the solution of a continuous normalising flow, the flow matching perspective first specifies a so-called probability path connecting a
+Rather than defining the transformation through an explicit, parametric, map $T$ or through the solution of a continuous normalising flow, the flow matching perspective first specifies a so-called probability path connecting a
 simple base distribution to the target distribution. Let
-$\{p_t\}_{t\in[0,1]}$ denote a family of densities such that
+$\{p_t\}_{t\in[0,1]}$ 
+denote a family of densities such that
 \[
 p_0(\z) = p_\u(\z), 
 \qquad
@@ -409,8 +328,8 @@ p_1(\z) = p(\z),
 which interpolates between the base and target measures.
 
 To realise such a path, consider a time-dependent flow map
-$\phi_t:\R^D \to \R^D$ that transports samples over time. As in the
-previous section, the flow $\phi$ is defined as the solution of the ODE
+$\phi_t:\R^D \to \R^D$ 
+that transports samples over time. As in the previous section, the flow $\phi$ is defined as the solution of the ODE
 \[
 \frac{\d}{\d t}\phi_t(\u)
 =
@@ -418,13 +337,9 @@ v(t,\phi_t(\u)),
 \qquad
 \phi_0(\u)=\u,
 \]
-where $v:[0,1]\times\R^D\to\R^D$ is a time-dependent vector field. For
-a sample $\u\sim p_\u$, the trajectory $\z_t=\phi_t(\u)$ describes the
-evolution of the particle under the velocity field $v$, and the
-distribution of $\z_t$ evolves along the prescribed probability path
-$p_t$. As before, we say that the velocity field $v$ \emph{induces} the
-probability path $p_t$ if the pair $(p_t,v)$ satisfies the continuity
-equation.
+where $v:[0,1]\times\R^D\to\R^D$ is a time-dependent velocity field. For a sample $\u\sim p_\u$, the trajectory $\z_t=\phi_t(\u)$ describes the evolution of the particle under the velocity field $v$, and the distribution of $\z_t$ evolves along the prescribed probability path
+$\{p_t\}_{t\in[0,1]}$. 
+As before, we say that the velocity field $v$ \emph{induces} the probability path $p_t$ if the pair $(p_t,v)$ satisfies the continuity equation.
 
 Flow matching methods do not parametrise the flow $\phi_t$ directly.
 Instead, they learn a parametrised vector field $v_\theta(t,\z)$ whose
