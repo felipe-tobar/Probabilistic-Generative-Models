@@ -800,7 +800,7 @@ where \(s:\mathbb{R}^{d_1}\to\mathbb{R}^{d_2}\), \(t:\mathbb{R}^{d_1}\to\mathbb{
 \[
 \log |\det \nabla T(u_1,u_2)| = \sum_{j=1}^{d_2} s_j(u_1).
 \]
-\item Explain why this type of layer is attractive for likelihood-based training.
+\item Explain why this transformation is attractive for likelihood-based training.
 \end{enumerate}
 \end{exercise}
 
@@ -839,7 +839,7 @@ I_{d_1} & 0\\[1mm]
 * & \mathrm{Diag}(e^{s(u_1)})
 \end{pmatrix},
 \]
-where the lower-left block $*$ is some $d_2\times d_1$ matrix coming from differentiating $x_2$ with respect to $u_1$---closed form given the derivatives of the functions $s(\cdot)$ and $t(\cdot)$.
+where the lower-left block $*$ is some $d_2\times d_1$ matrix coming from differentiating $x_2$ with respect to $u_1$. This expression has closed form given the derivatives of the functions $s(\cdot)$ and $t(\cdot)$.
 
 \medskip
 
@@ -861,10 +861,10 @@ Therefore
 
 \medskip
 
-\textbf{4. Why useful for likelihood training.}
+\textbf{4. Usefulness for likelihood-based  training.}
 \begin{itemize}
-    \item easily invertible, so sampling and density evaluation are both straightforward, and
-    \item its Jacobian determinant is cheap to compute, since it reduces to a sum rather than a full determinant. Thus exact log-likelihood training is efficient.
+    \item $T$ is easily invertible, so sampling and density evaluation are straightforward, and
+    \item the determinant of its  Jacobian is inexpensive to compute, as it reduces to a sum. Therefore, exact log-likelihood training is feasible and efficient.
 \end{itemize}
 
 \end{solution}
@@ -944,7 +944,7 @@ since
 
 \medskip
 
-\textbf{4.} Composing several (simpler) flows is preferable because each layer can be made invertible with a cheap Jacobian determinant, while the composition is still expressive. This simplifies optimisation, sampling, and exact likelihood evaluation since usually the inverse and derivatives of the simple flows are available in closed form and do not need to be numerically approximated (as it is the case or complex maps).
+\textbf{4.} Composing several (simpler) flows is preferable because each layer can be made invertible with a cheap Jacobian determinant, while the composition is still expressive. This simplifies optimisation, sampling, and exact likelihood evaluation since usually the inverse and derivatives of the simple flows are available in closed form and do not need to be numerically approximated (the maps $\phi_k$ are chosen to have with this property in mind).
 
 \end{solution}
 
@@ -953,7 +953,7 @@ Let \(\z_0\sim \mathcal N(m_0,\Sigma_0)\), and consider the linear ODE
 \[
 \frac{d\z_t}{dt}=A\z_t+b,
 \]
-where \(A\in\mathbb{R}^{D\times D}\) and \(b\in\mathbb{R}^D\) are constant.
+where \(A\in\mathbb{R}^{D\times D}\) and \(b\in\mathbb{R}^D\) are constants.
 
 \begin{enumerate}
 \item Show that \(\z_t\) can be written explicitly in terms of \(\z_0\), \(A\), and \(b\).
@@ -962,6 +962,133 @@ where \(A\in\mathbb{R}^{D\times D}\) and \(b\in\mathbb{R}^D\) are constant.
 \item Solve these ODEs in the case \(A=0\).
 \end{enumerate}
 \end{exercise}
+\begin{solution}[Gaussian paths in continuous-time flows]
+
+\textbf{1. Explicit expression for \(\z_t\).}
+
+The solution of
+\[
+\frac{d\z_t}{dt}=A\z_t+b
+\]
+can be written as
+\[
+\z_t = e^{tA}\z_0 + \int_0^t e^{(t-s)A}b\,ds,
+\]
+where
+\[
+e^{tA}:=\sum_{k=0}^\infty \frac{(tA)^k}{k!}
+\]
+is the matrix exponential.
+
+Indeed, differentiating the right-hand side gives (Leibniz rule)
+\[
+\frac{d}{dt}\left(e^{tA}\z_0 + \int_0^t e^{(t-s)A}b\,ds\right)
+=
+Ae^{tA}\z_0 + b + \int_0^t A e^{(t-s)A}b\,ds
+=
+A\z_t+b.
+\]
+Also, at \(t=0\) this expression gives \(\z_t=\z_0\), so it is the required solution.
+
+Furthermore, if \(A\) is invertible, then
+\[
+\int_0^t e^{(t-s)A}b\,ds
+=
+A^{-1}(e^{tA}-I)b,
+\]
+hence
+\[
+\z_t = e^{tA}\z_0 + A^{-1}(e^{tA}-I)b.
+\]
+
+\bigskip
+
+\textbf{2. Gaussianity of \(\z_t\).}
+
+From the formula above, \(\z_t\) is an affine function of \(\z_0\):
+\[
+\z_t = e^{tA}\z_0 + c_t,
+\qquad
+c_t:=\int_0^t e^{(t-s)A}b\,ds.
+\]
+Since \(\z_0\sim \mathcal N(m_0,\Sigma_0)\), it follows that \(\z_t\) is Gaussian for every \(t\). More precisely,
+\[
+\z_t \sim \mathcal N(m_t,\Sigma_t),
+\]
+with
+\[
+m_t = e^{tA}m_0 + c_t,
+\qquad
+\Sigma_t = e^{tA}\Sigma_0 e^{tA^\top}.
+\]
+
+\bigskip
+
+\textbf{3. ODEs for the mean and covariance.}
+
+Let
+\[
+m_t=\mathbb E[\z_t].
+\]
+Taking expectation in the ODE gives
+\[
+\frac{dm_t}{dt}=Am_t+b.
+\]
+Here this is justified since \(\z_t\) is an explicit smooth affine function of \(\z_0\), so differentiation may be taken inside the expectation.
+
+Now define the centred process
+\[
+\widetilde{\z}_t := \z_t-m_t.
+\]
+Then
+\[
+\frac{d\widetilde{\z}_t}{dt}
+=
+A\widetilde{\z}_t.
+\]
+Since
+\[
+\Sigma_t=\mathrm{Cov}(\z_t)=\mathbb E\bigl[\widetilde{\z}_t\widetilde{\z}_t^\top\bigr],
+\]
+we obtain
+\[
+\frac{d}{dt}\Sigma_t
+=
+\mathbb E\!\left[\frac{d\widetilde{\z}_t}{dt}\widetilde{\z}_t^\top
++
+\widetilde{\z}_t\frac{d\widetilde{\z}_t^\top}{dt}\right]
+=
+A\Sigma_t+\Sigma_tA^\top.
+\]
+
+\bigskip
+
+\textbf{4. Case \(A=0\).}
+
+If \(A=0\), then
+\[
+\frac{d\z_t}{dt}=b,
+\qquad\text{so}\qquad
+\z_t=\z_0+t\,b.
+\]
+Hence
+\[
+\frac{dm_t}{dt}=b,
+\qquad
+\frac{d\Sigma_t}{dt}=0,
+\]
+and therefore
+\[
+m_t=m_0+t\,b,
+\qquad
+\Sigma_t=\Sigma_0.
+\]
+Thus
+\[
+\z_t \sim \mathcal N(m_0+t\,b,\Sigma_0).
+\]
+
+\end{solution}
 
 \begin{exercise}[Deriving the continuity equation in one dimension]
 Let \(z_t\in\mathbb{R}\) solve
@@ -983,6 +1110,86 @@ and let \(p_t(z)\) denote the density of \(z_t\).
 \item Verify the equation for the constant velocity field \(g(t,z)=c\), and identify the resulting density \(p_t\) in terms of \(p_0\).
 \end{enumerate}
 \end{exercise}
+
+
+\begin{solution}[Deriving the continuity equation in one dimension]
+
+\textbf{1. Conservation of mass on an interval.}
+Conservation of mass says that the rate of change of this mass equals the net flux through the boundary:
+\[
+\frac{d}{dt}\int_a^b p_t(z)\,dz
+=
+-\Bigl[p_t(z)\,g(t,z)\Bigr]_{z=a}^{z=b}.
+\]
+Expressing the rhs as an integral: 
+\[
+\int_a^b \partial_t p_t(z)\,dz
+=
+-\int_a^b \partial_z\bigl(p_t(z)\,g(t,z)\bigr)\,dz.
+\]
+Therefore
+\[
+\int_a^b \Bigl(\partial_t p_t(z)+\partial_z\bigl(p_t(z)\,g(t,z)\bigr)\Bigr)\,dz=0.
+\]
+Since this holds for every interval \([a,b]\), we obtain
+\[
+\partial_t p_t(z)+\partial_z\bigl(p_t(z)\,g(t,z)\bigr)=0.
+\]
+
+\bigskip
+
+\textbf{2. Expanded form.}
+
+Using the product rule,the continuity equation becomes
+\[
+\partial_t p_t(z)+g(t,z)\,\partial_z p_t(z)+p_t(z)\,\partial_z g(t,z)=0.
+\]
+
+\bigskip
+
+\textbf{3. Interpretation of the terms.}
+
+The term \(\partial_t p_t(z)\) is the local rate of change of the density at position \(z\).
+
+The term \(g(t,z)\,\partial_z p_t(z)\) corresponds to transport (advection): the density profile is moved along by the velocity field \(g\).
+
+The term \(p_t(z)\,\partial_z g(t,z)\) corresponds to expansion or compression of space. 
+If \(\partial_z g>0\), nearby particles move apart and the density decreases; 
+if \(\partial_z g<0\), nearby particles move together and the density increases.
+
+Equivalently, the term \(g(t,z)\,\partial_z p_t(z)\) moves the density along the flow,
+while the term \(p_t(z)\,\partial_z g(t,z)\) changes the density because the flow locally stretches or compresses space.
+
+\bigskip
+
+\textbf{4. Constant velocity field \(g(t,z)=c\).}
+
+If \(g(t,z)=c\), then \(\partial_z g(t,z)=0\), so the equation becomes
+\[
+\partial_t p_t(z)+c\,\partial_z p_t(z)=0.
+\]
+This is the transport equation with constant speed \(c\). Its solution is
+\[
+p_t(z)=p_0(z-ct).
+\]
+Indeed,
+\[
+\partial_t p_t(z)=-c\,p_0'(z-ct),
+\qquad
+\partial_z p_t(z)=p_0'(z-ct),
+\]
+so
+\[
+\partial_t p_t(z)+c\,\partial_z p_t(z)=0.
+\]
+
+Thus the density is simply translated at speed \(c\):
+\[
+p_t(z)=p_0(z-ct).
+\]
+
+\end{solution}
+
 
 \begin{exercise}[Instantaneous change-of-variables formula]
 Assume \(\z_t\) follows the ODE
@@ -1012,6 +1219,85 @@ and that the density \(p_t\) satisfies the continuity equation
 \end{enumerate}
 \end{exercise}
 
+\begin{solution}[Instantaneous change-of-variables formula]
+
+\textbf{1. Expanding the divergence term.}
+
+As in the previous exercise, using the product rule for divergence gives 
+\[
+\partial_t p_t(\z)
++
+g_\phi(t,\z)\cdot\nabla_\z p_t(\z)
++
+p_t(\z)\,\nabla_\z\cdot g_\phi(t,\z)
+=0.
+\]
+
+\bigskip
+
+\textbf{2. Differentiating \(p_t(\z_t)\) along trajectories.}
+
+By the chain rule,
+\[
+\frac{d}{dt} p_t(\z_t)
+=
+\partial_t p_t(\z_t)
++
+\nabla_\z p_t(\z_t)\cdot \frac{d\z_t}{dt}.
+\]
+Since \(\frac{d\z_t}{dt}=g_\phi(t,\z_t)\), this gives
+\[
+\frac{d}{dt} p_t(\z_t)
+=
+\partial_t p_t(\z_t)
++
+g_\phi(t,\z_t)\cdot\nabla_\z p_t(\z_t).
+\]
+Using the continuity equation from part 1,
+\[
+\partial_t p_t + g_\phi\cdot\nabla_\z p_t
+=
+- p_t\,\nabla_\z\cdot g_\phi,
+\]
+hence
+\[
+\frac{d}{dt} p_t(\z_t)
+=
+- p_t(\z_t)\,\nabla_\z\cdot g_\phi(t,\z_t).
+\]
+
+\bigskip
+
+\textbf{3. Equation for \(\log p_t(\z_t)\).}
+
+Using
+\[
+\frac{d}{dt}\log p_t(\z_t)
+=
+\frac{1}{p_t(\z_t)}\frac{d}{dt} p_t(\z_t),
+\]
+we obtain
+\[
+\frac{d}{dt}\log p_t(\z_t)
+=
+-\nabla_\z\cdot g_\phi(t,\z_t).
+\]
+
+\bigskip
+
+\textbf{4. Integrating from \(t=0\) to \(t=1\).}
+
+Integrating over time, we have 
+\[
+\log p_1(\z_1)
+=
+\log p_0(\z_0)
+-
+\int_0^1 \nabla_\z\cdot g_\phi(t,\z_t)\,dt.
+\]
+
+\end{solution}
+
 \begin{exercise}[Conditional flow matching with a Gaussian path]
 Fix \(\x_1\in\mathbb{R}^D\), and consider the conditional Gaussian path
 \[
@@ -1039,7 +1325,7 @@ v_t(\x\mid \x_1)
 \frac{\sigma_t'(\x_1)}{\sigma_t(\x_1)}
 \bigl(\x-\mu_t(\x_1)\bigr).
 \]
-\item Specialise the result to
+\item Express the result for the particular case 
 \[
 \mu_t(\x_1)=t\x_1,
 \qquad
@@ -1048,6 +1334,78 @@ v_t(\x\mid \x_1)
 and simplify \(v_t(\x\mid \x_1)\).
 \end{enumerate}
 \end{exercise}
+
+\begin{solution}[Conditional flow matching with a Gaussian path]
+
+\textbf{1. Showing that \(\phi_t(\x)\sim p_t(\cdot\mid \x_1)\).}
+
+Since $\phi_t(\cdot)$ is an affine transformation of the Gaussian random variable  $\x$, it is again Gaussian. Calculating its mean and variance are direct, therefore:  
+\[
+\phi_t(\x)\sim \mathcal N\bigl(\mu_t(\x_1),\sigma_t(\x_1)^2 I\bigr).
+\]
+Hence
+\[
+\phi_t(\x)\sim p_t(\cdot\mid \x_1).
+\]
+
+\bigskip
+
+\textbf{2. Differentiating \(\phi_t(\x)\) with respect to \(t\).}
+
+Differentiating with respect to \(t\), we obtain
+\[
+\frac{d}{dt}\phi_t(\x)
+=
+\mu_t'(\x_1)+\sigma_t'(\x_1)\x.
+\]
+
+\bigskip
+
+\textbf{3. Deriving the conditional velocity field.}
+
+Using
+\[
+\x=\frac{\phi_t(\x)-\mu_t(\x_1)}{\sigma_t(\x_1)},
+\]
+we substitute into the previous expression:
+\[
+\frac{d}{dt}\phi_t(\x)
+=
+\mu_t'(\x_1)
++
+\sigma_t'(\x_1)\frac{\phi_t(\x)-\mu_t(\x_1)}{\sigma_t(\x_1)}.
+\]
+Therefore the velocity field at a point \(\tilde\x\) is
+\[
+v_t(\x\mid \x_1)
+=
+\mu_t'(\x_1)
++
+\frac{\sigma_t'(\x_1)}{\sigma_t(\x_1)}
+\bigl(\tilde\x-\mu_t(\x_1)\bigr).
+\]
+
+\bigskip
+
+\textbf{4. Special case \(\mu_t(\x_1)=t\x_1\) and \(\sigma_t(\x_1)=1-t(1-\sigma_{\min})\).}
+
+Here, we have
+\[
+\mu_t'(\x_1)=\x_1,
+\qquad
+\sigma_t'(\x_1)=-(1-\sigma_{\min}).
+\]
+Substituting into the formula above gives
+\[
+v_t(\tilde\x\mid \x_1)
+=
+\x_1
+-
+\frac{1-\sigma_{\min}}{1-t(1-\sigma_{\min})}
+(\tilde\x-t\x_1).
+\]
+
+\end{solution}
 
 \begin{exercise}[Rectified flow and transport efficiency]
 Consider the conditional path
@@ -1077,3 +1435,79 @@ Compare the trajectories obtained from:
 Which one gives more efficient transport, and why?
 \end{enumerate}
 \end{exercise}
+
+\begin{solution}[Rectified flow and transport efficiency]
+
+\textbf{1. Conditional velocity field.}
+
+Write the path as (following the previous exercise)
+\[
+\phi_t(\varepsilon)=(1-t)\x_0+t\x_1+\sigma \varepsilon,
+\qquad
+\varepsilon\sim\mathcal N(0,I).
+\]
+Then
+\[
+\phi_t(\varepsilon)\sim \mathcal N\bigl((1-t)\x_0+t\x_1,\sigma^2I\bigr),
+\]
+and differentiating with respect to \(t\) gives
+\[
+\frac{d}{dt}\phi_t(\varepsilon)=\x_1-\x_0.
+\]
+Hence the associated conditional velocity field is
+\[
+v_t(\x\mid \x_0,\x_1)=\x_1-\x_0.
+\]
+
+\bigskip
+
+\textbf{2. Why it does not depend on \(t\) or \(\x\).}
+
+The mean path
+\[
+(1-t)\x_0+t\x_1
+\]
+is a straight line from \(\x_0\) to \(\x_1\). Moving along a straight line at constant speed means the velocity is constant, equal to \(\x_1-\x_0\). The noise term \(\sigma\varepsilon\) does not depend on \(t\), so it does not affect the velocity. 
+
+Intuitively, all particles associated with the pair \((\x_0,\x_1)\) move in parallel straight lines from \(\x_0\) to \(\x_1\), so the velocity field is the same everywhere and at all times for that pair.
+
+\bigskip
+
+\textbf{3. Limit \(\sigma\to 0\).}
+
+As \(\sigma\to 0\), the Gaussian path concentrates on the deterministic line segment (the mean path mentioned above)
+\[
+\x_t=(1-t)\x_0+t\x_1.
+\]
+Thus trajectories become straight lines joining \(\x_0\) to \(\x_1\), travelled at constant speed.
+
+\bigskip
+
+\textbf{4. One-dimensional example.}
+
+Here
+\[
+p=\tfrac12\delta_{-1}+\tfrac12\delta_{1},
+\qquad
+q=\tfrac12\delta_{-2}+\tfrac12\delta_{2}.
+\]
+
+\emph{(a) Independent coupling.}
+All four pairings occur with probability \(1/4\):
+\[
+-1\mapsto -2,\qquad -1\mapsto 2,\qquad 1\mapsto -2,\qquad 1\mapsto 2.
+\]
+So some particles move a short distance \(1\), while others move a longer distance \(3\), including crossings through the origin.
+
+\emph{(b) Monotone/OT coupling.}
+The coupling pairs
+\[
+-1\mapsto -2,
+\qquad
+1\mapsto 2.
+\]
+Thus both trajectories are straight and monotone, each moving distance \(1\).
+
+Therefore the monotone/OT coupling gives more efficient transport, since it avoids unnecessary crossings and minimises the total displacement.
+
+\end{solution}
