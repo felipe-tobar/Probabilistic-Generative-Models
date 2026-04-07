@@ -796,3 +796,368 @@ Algorithm \ref{alg:gp_posterior} presents a general procedure for prediction usi
     \caption{Plots from the full GP pipeline. From top to bottom: prior, data, posterior predictive (untrained) and posterior predictive (trained).}
     \label{fig:GP_full_example}
 \end{figure}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%EXERCISES%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+\clearpage
+\newpage
+\section*{Exercises - Gaussian processes}
+
+\begin{exercise}[Understanding the GP prior]
+    Let \(f \sim \mathcal{GP}(0, k)\) with kernel \(k(x,x') = \exp(-\|x-x'\|^2)\).
+    Consider inputs \(x_1, x_2\). Express the joint distribution of \((f(x_1), f(x_2))\), and give its mean vector and covariance matrix explicitly.
+\end{exercise}
+
+\begin{solution}[Understanding the GP prior]
+    Since \(f \sim \mathcal{GP}(0,k)\), by definition, for any finite collection of inputs \(x_1,x_2\), the random vector $ [f(x_1),f(x_2)]^\top $ is jointly Gaussian with mean function identically zero, so
+\[
+\mathbb{E}[f(x_1)] = 0,
+\qquad
+\mathbb{E}[f(x_2)] = 0.
+\]
+
+The covariance matrix is obtained by evaluating the kernel at all pairs of inputs:
+\[
+\Sigma =
+\begin{bmatrix}
+k(x_1,x_1) & k(x_1,x_2)\\
+k(x_2,x_1) & k(x_2,x_2)
+\end{bmatrix}.
+\]
+Using
+\(
+k(x,x') = \exp(-\|x-x'\|^2),
+\)
+we compute each entry:
+\[
+k(x_1,x_1) = \exp(-\|x_1-x_1\|^2) = \exp(0)=1,
+\]
+\[
+k(x_2,x_2) = \exp(-\|x_2-x_2\|^2) = \exp(0)=1,
+\]
+\[
+k(x_1,x_2) = k(x_2,x_1) = \exp(-\|x_1-x_2\|^2).
+\]
+Hence
+\[
+\Sigma =
+\begin{bmatrix}
+1 & \exp(-\|x_1-x_2\|^2)\\
+\exp(-\|x_1-x_2\|^2) & 1
+\end{bmatrix}.
+\]
+
+Thus, the joint distribution is
+\[
+\begin{bmatrix}
+f(x_1)\\
+f(x_2)
+\end{bmatrix}
+\sim
+\mathcal{N}\left(
+\begin{bmatrix}
+0\\
+0
+\end{bmatrix},
+\begin{bmatrix}
+1 & \exp(-\|x_1-x_2\|^2)\\
+\exp(-\|x_1-x_2\|^2) & 1
+\end{bmatrix}
+\right).
+\]
+
+This means that both function values have variance \(1\), and their covariance depends on the distance between the inputs: the closer \(x_1\) and \(x_2\) are, the stronger the correlation between \(f(x_1)\) and \(f(x_2)\). 
+\end{solution}
+
+\begin{exercise}[From Bayesian linear regression to GP]
+    Consider the model \(f(x) = \phi(x)^\top w\) with \(w \sim \mathcal{N}(0, I)\).
+    Show that \(f\) is a Gaussian process and derive its mean and covariance function.
+    What role does the feature map \(\phi\) play in defining the kernel?
+\end{exercise}
+
+\begin{solution}[From Bayesian linear regression to GP]
+For any inputs \(x_1,\ldots,x_N\), define
+\[
+\mathbf f \coloneqq 
+\begin{bmatrix}
+f(x_1)\\
+\vdots\\
+f(x_N)
+\end{bmatrix}
+=
+\begin{bmatrix}
+\phi(x_1)^\top\\
+\vdots\\
+\phi(x_N)^\top
+\end{bmatrix} w.
+\]
+Since \(w\sim\mathcal N(0,I)\) and \(\mathbf f\) is a linear transformation of \(w\), \(\mathbf f\) is jointly Gaussian. Hence \(f\) is a Gaussian process.
+
+Its mean function is
+\[
+m(x)=\mathbb E[f(x)]
+=\mathbb E[\phi(x)^\top w]
+=\phi(x)^\top \mathbb E[w]
+=0.
+\]
+
+Its covariance function is
+\[
+k(x,x')
+=\mathrm{Cov}(f(x),f(x'))
+=\mathbb E[f(x)f(x')]
+=\mathbb E[\phi(x)^\top w\, w^\top \phi(x')]
+=\phi(x)^\top \phi(x').
+\]
+
+Therefore,
+\[
+f \sim \mathcal{GP}(0,k),
+\qquad
+k(x,x')=\phi(x)^\top \phi(x').
+\]
+
+The feature map \(\phi\) defines the kernel through the an inner product in the feature space: two inputs are similar when their feature vectors are \emph{aligned}.
+\end{solution}
+
+
+\begin{exercise}[Kernel validity]
+    Let \(k_1\) and \(k_2\) be valid kernels. Show that:
+    \begin{enumerate}
+        \item \(k_a(x,x') = k_1(x,x') + k_2(x,x')\),
+        \item \(k_b(x,x') = k_1(x,x')\,k_2(x,x')\),
+        \item \(k_c(x,x') = sk_1(x,x'), s>0\),
+    \end{enumerate}
+    are also valid kernels.
+\end{exercise}
+
+\begin{solution}[Kernel validity]
+To show that \(k_a,k_b,k_c\) are valid kernels, it is enough to show that for any inputs \(x_1,\ldots,x_N\), their Gram matrices are positive semidefinite.
+
+Let
+\[
+K_1 = [k_1(x_i,x_j)]_{i,j=1}^N,
+\qquad
+K_2 = [k_2(x_i,x_j)]_{i,j=1}^N.
+\]
+Since \(k_1\) and \(k_2\) are valid kernels, \(K_1\) and \(K_2\) are symmetric positive semidefinite.
+
+\begin{enumerate}
+    \item For \(k_a(x,x') = k_1(x,x') + k_2(x,x')\), the Gram matrix is
+    \[
+    K_a = K_1 + K_2.
+    \]
+    For any \(v\in\R^N\),
+    \[
+    v^\top K_a v = v^\top K_1 v + v^\top K_2 v \geq 0,
+    \]
+    so \(K_a\) is positive semidefinite. Hence \(k_a\) is a valid kernel.
+
+    \item For \(k_b(x,x') = k_1(x,x')\,k_2(x,x')\), the Gram matrix is
+    \[
+    K_b = K_1 \circ K_2,
+    \]
+    where \(\circ\) denotes the elementwise (Hadamard) product. By the Schur product theorem, the Hadamard product of two positive semidefinite matrices is again positive semidefinite. Therefore \(K_b\) is positive semidefinite, and \(k_b\) is a valid kernel.
+
+    \item For \(k_c(x,x') = s\,k_1(x,x')\) with \(s>0\), the Gram matrix is
+    \[
+    K_c = s K_1.
+    \]
+    For any \(v\in\R^N\),
+    \[
+    v^\top K_c v = s\, v^\top K_1 v \geq 0,
+    \]
+    since \(s>0\) and \(K_1\) is positive semidefinite. Hence \(k_c\) is a valid kernel.
+\end{enumerate}
+
+\end{solution}
+
+\begin{exercise}[Squared exponential kernel properties]
+    Consider the squared exponential kernel
+    \[
+    k(x,x') = \sigma^2 \exp\left(-\frac{(x-x')^2}{2\ell^2}\right).
+    \]
+    Explain the effect of the hyperparameters \(\sigma^2\) and \(\ell\) on the smoothness and amplitude of GP sample paths.
+\end{exercise}
+
+\begin{solution}[Squared exponential kernel properties]
+\(\sigma^2\) controls the marginal variance:
+\[
+\mathrm{Var}(f(x)) = \sigma^2,
+\]
+so larger \(\sigma^2\) yields larger-amplitude functions.
+
+\(\ell\) controls how quickly the covariance decays:
+\[
+\mathrm{Cov}(f(x),f(x')) = \exp\!\left(-\frac{(x-x')^2}{2\ell^2}\right).
+\]
+Large \(\ell\): slow decay \(\Rightarrow\) smooth, slowly varying functions.  \\
+Small \(\ell\): fast decay \(\Rightarrow\) rapidly varying, less smooth functions.
+\end{solution}
+
+\begin{exercise}[Posterior mean as a linear smoother]
+    Show that the GP posterior mean
+    \[
+    m_\ast = k_\ast^\top (K+\sigma^2 I)^{-1}y
+    \]
+    can be written as a linear combination of the observations \(y_1,\ldots,y_N\).
+    Interpret the weights in terms of similarity.
+\end{exercise}
+
+\begin{solution}[Posterior mean as a linear smoother]
+The posterior mean can be expressed as 
+\[
+m_\ast = \sum_{n=1}^N w_n(x_\ast)\,y_n,
+\qquad
+w(x_\ast)^\top \coloneqq k_\ast^\top (K+\sigma^2 I)^{-1} \in\R^N.
+\]
+Thus \(m_\ast\) is a linear combination of the observations \(y_1,\dots,y_N\).
+
+The weights \(w_n(x_\ast)\) are determined by the kernel values \(k(x_n,x_\ast)\): training points more similar to \(x_\ast\) receive larger weight, while distant or weakly correlated points receive smaller weight. This means that the predicted mean is a linear combination of the observations, with weights reflecting the similarity between \(x_\ast\) and the training inputs as encoded by the kernel.
+
+
+Additionally, defining
+\(
+\alpha \coloneqq (K+\sigma^2 I)^{-1}y,
+\)
+the posterior mean can be  expressed as 
+\[
+m_\ast = k_\ast^\top \alpha
+= \sum_{n=1}^N \alpha_n\,k(x_n,x_\ast).
+\]
+Hence, the posterior mean is also a linear combination of kernel evaluations between the test and training points.
+
+
+\end{solution}
+
+
+\begin{exercise}[Effect of noise variance]
+    Analyze the effect of the noise variance \(\sigma^2\) on:
+    \begin{enumerate}
+        \item the posterior mean,
+        \item the posterior variance.
+    \end{enumerate}
+    What happens in the limits \(\sigma^2 \to 0\) and \(\sigma^2 \to \infty\)?
+\end{exercise}
+
+\begin{solution}[Effect of noise variance]
+The GP posterior mean and variance are
+\[
+m_\ast = k_\ast^\top (K+\sigma^2 I)^{-1}y,
+\qquad
+v_\ast = k(x_\ast,x_\ast) - k_\ast^\top (K+\sigma^2 I)^{-1}k_\ast.
+\]
+
+As \(\sigma^2\) increases, the matrix \(K+\sigma^2 I\) becomes dominated by the noise term, so the observations are trusted less. Hence the posterior mean is shrunk toward \(0\), and the posterior variance increases toward the prior variance.
+
+As \(\sigma^2\to 0\),
+\[
+m_\ast \to k_\ast^\top K^{-1}y,
+\qquad
+v_\ast \to k(x_\ast,x_\ast)-k_\ast^\top K^{-1}k_\ast.
+\]
+This is the noiseless interpolation case: the posterior fits each datapoint.
+
+As \(\sigma^2\to\infty\),
+\[
+(K+\sigma^2 I)^{-1}\to 0,
+\]
+so
+\[
+m_\ast \to 0,
+\qquad
+v_\ast \to k(x_\ast,x_\ast).
+\]
+Thus the data become uninformative, and we say that the posterior \emph{reverts to the prior.}
+\end{solution}
+
+\begin{exercise}[Computational complexity]
+    Show that evaluating the GP marginal likelihood requires \(\mathcal{O}(N^3)\) operations.
+    Identify which step dominates the computation and explain why.
+\end{exercise}
+
+\begin{solution}[Computational complexity]
+The GP marginal likelihood is
+\[
+\log p(y\mid X)
+=
+-\frac{1}{2}y^\top (K+\sigma^2 I)^{-1}y
+-\frac{1}{2}\log |K+\sigma^2 I|
+-\frac{N}{2}\log(2\pi).
+\]
+Let
+\[
+C \coloneqq K+\sigma^2 I \in \R^{N\times N}.
+\]
+
+Evaluating this expression requires:
+\begin{enumerate}
+    \item forming \(C\),
+    \item factorising \(C\), typically via Cholesky: \(C=LL^\top\),
+    \item compute \(y^\top C^{-1}y\) via the solution of a linear systems,
+    \item computing \(\log|C|\) from the Cholesky factor.
+\end{enumerate}
+
+The dominant step is the Cholesky factorisation of the \(N\times N\) matrix \(C\), which costs \(\mathcal O(N^3)\). The remaining steps cost only \(\mathcal O(N^2)\).
+
+Therefore, evaluating the GP marginal likelihood requires \(\mathcal O(N^3)\) operations overall. Partly, this is the reason that most accelerated strategies for GP training consider reduced rank factorisations for $C$.  
+\end{solution}
+
+
+\begin{exercise}[Sampling from a GP]
+    Describe the procedure to draw a sample from a GP prior at inputs \(x_1,\ldots,x_N\).
+    Why is it sufficient to consider only a finite set of inputs when sampling from an infinite-dimensional process?
+\end{exercise}
+
+\begin{solution}[Sampling from a GP]
+To sample from a GP prior at inputs \(x_1,\ldots,x_N\):
+\begin{enumerate}
+    \item Compute the mean vector \(\m = [m(x_1),\ldots,m(x_N)]^\top\).
+    \item Compute the covariance matrix \(K\) with \(K_{ij}=k(x_i,x_j)\).
+    \item Draw \(\z \sim \mathcal N(0,I_N)\).
+    \item Compute a factorisation \(K=LL^\top\) (e.g.\ Cholesky).
+    \item Set \(\f = \m + L\z\).
+\end{enumerate}
+
+This gives a sample \([f(x_1),\ldots,f(x_N)]^\top\).
+
+It is sufficient to consider a finite set of inputs because a GP is defined through its finite-dimensional marginals: for any finite collection of inputs, the function values are jointly Gaussian. Moreover, Gaussian distributions are closed under marginalisation, meaning any subset of function values is consistent with a larger joint Gaussian. Therefore, sampling the function at finitely many inputs yields a valid finite-dimensional realisation of the GP, without requiring explicit construction of the infinite-dimensional object.
+\end{solution}
+
+\begin{exercise}[Designing kernels]
+    Construct a kernel suitable for modelling a function that is:
+    \begin{itemize}
+        \item periodic,
+        \item slowly varying over time,
+        \item with small local non-differentiable  irregularities.
+    \end{itemize}
+    Justify your construction using sums and products of standard kernels.
+\end{exercise}
+
+
+\begin{solution}[Designing kernels]
+A suitable choice is
+\[
+k(x,x') = k_{LP}(x,x') + k_{M}(x,x'),
+\]
+where
+\[
+k_{LP}(x,x')
+=
+\sigma_1^2
+\exp\!\left(-\frac{(x-x')^2}{2\ell_1^2}\right)
+\exp\!\left(-\frac{2\sin^2(\pi |x-x'|/p)}{\ell_2^2}\right)
+\]
+is a locally-periodic kernel, and
+\[
+k_M(x,x')
+=
+\sigma_2^2 \exp\!\left(-\frac{|x-x'|}{\ell_3}\right)
+\]
+is an exponential kernel (Laplace or Matérn-\(\tfrac12\)).
+
+The product term \(k_{LP}\) models periodic behaviour that changes slowly over time: the periodic factor enforces repetition, while the squared exponential factor makes this structure vary smoothly. The additive Matérn-\(\tfrac12\) term captures small local irregularities and produces sample paths that are not differentiable. Since sums and products of valid kernels are valid kernels, \(k\) is a valid kernel.
+\end{solution}
