@@ -587,3 +587,396 @@ The SBM objective is equivalent to that of DDPM score matching up to a known sca
 Lastly, combining the previous equivalences implies that DDPM and FM also become equivalent.
 
 From the perspective of the loss functions, though the methods adopt different representations, they are equivalent. FM regresses the velocity field $v^\star(\x_t,t)$, SBM regresses the score $\nabla\log p_t(\x_t)$, and DDPM regresses the noise variable $\varepsilon$. However, these quantities are linearly related given the shared assumption of the diffusion process. This means that  the three objectives are different parameterisations of the same concept, which is to learn a vector field that transports a Gaussian distribution to the data distribution over time.
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%EXERCISES%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+\clearpage
+\newpage
+\section{Exercises - Diffusion models}
+
+\begin{exercise}[Score function properties]
+Let $p(\x)$ be a smooth probability density on $\R^D$ with score $s(\x)=\nabla_\x \log p(\x)$.  
+Show that $\mathbb{E}_{p(\x)}[s(\x)] = 0$ assuming that $p(\x)$ decays sufficiently fast at infinity, and compute $s(\x)$ explicitly when $p(\x)=\cN(\x;\mu,\Sigma)$, where $\mu\in\R^D$ and $\Sigma\in\R^{D\times D}$ is a symmetric positive definite matrix.
+\end{exercise}
+
+\begin{solution}[Score function properties]
+Recall that
+\[
+s(\x)=\nabla_\x \log p(\x)=\frac{\nabla_\x p(\x)}{p(\x)},
+\]
+whenever $p(\x)>0$. Therefore,
+\(
+p(\x)s(\x)=\nabla_\x p(\x).
+\)
+Integrating with respect to $\x$ gives
+\[
+\mathbb{E}_{p(\x)}[s(\x)]
+=
+\int_{\R^D} s(\x)\,p(\x)\,\d\x
+=
+\int_{\R^D} \nabla_\x p(\x)\,\d\x.
+\]
+For each $j=1,\dots,D$, the $j$-th component of the rhs in the above expression is 
+\(
+\int_{\R^D} \partial_{x_j}p(\x)\,\d\x.
+\)
+Assuming $p(\x)$ decays at infinity, i.e.,  $p(\x)\to 0$ sufficiently fast as $\|\x\|\to\infty$, the fundamental theorem of calculus implies 
+\[
+\int_{\R^D} \partial_{x_j}p(\x)\,\d\x = 0.
+\]
+Hence every component vanishes, and thus
+\(
+\mathbb{E}_{p(\x)}[s(\x)] = 0.
+\)
+
+The log-density of
+\(
+p(\x)=\cN(\x;\mu,\Sigma),
+\)
+is 
+\[
+\log p(\x)
+=
+-\frac{D}{2}\log(2\pi)
+-\frac{1}{2}\log\det(\Sigma)
+-\frac{1}{2}(\x-\mu)^\top \Sigma^{-1}(\x-\mu).
+\]
+The first two terms are constant with respect to $\x$, so differentiating yields
+\[
+s(\x)=\nabla_\x \log p(\x)
+=
+-\frac{1}{2}\nabla_\x\left((\x-\mu)^\top \Sigma^{-1}(\x-\mu)\right).
+\]
+Since $\Sigma^{-1}$ is symmetric, we have that the score of the multivariate Gaussian distribution is 
+\[
+s(\x)= -\Sigma^{-1}(\x-\mu).
+\]
+Notice that, in this case in particular, we have 
+\[
+\mathbb{E}_{p(\x)}[s(\x)]
+=
+-\Sigma^{-1}\bigl(\mathbb{E}[\x]-\mu\bigr)
+=0,
+\]
+which is consistent with the general result.
+\end{solution}
+
+
+\begin{exercise}[Langevin dynamics interpretation]
+Let $p(\x)$ be a target density with score function $s(\x)=\nabla_\x \log p(\x)$.  
+Consider the update
+\[
+\x_{k+1} = \x_k + \frac{\epsilon}{2}s(\x_k) + \sqrt{\epsilon}\,\eta_k,
+\]
+where $\epsilon>0$ is a step size and $\eta_k\sim\cN(0,I)$ is a standard Gaussian random vector.
+
+Show that this corresponds to a stochastic gradient ascent step on $\log p(\x)$, and explain the role of the Gaussian noise term.
+\end{exercise}
+
+\begin{solution}[Langevin dynamics interpretation]
+Since $s(\x)=\nabla_\x \log p(\x)$, the update can be written as
+\[
+\x_{k+1}
+=
+\x_k + \frac{\epsilon}{2}\nabla_\x \log p(\x_k) + \sqrt{\epsilon}\,\eta_k.
+\]
+Ignoring the noise term, this is a gradient ascent step on $\log p(\x)$ with step size $\epsilon/2$, so the deterministic part moves $\x_k$ toward regions of higher (log) probability density.
+
+The parameter $\epsilon>0$ controls the magnitude of both the gradient step and the noise. Smaller values lead to more accurate but slower updates, while larger values allow for covering larger areas in the state space but may introduce instabilities.
+
+The Gaussian noise term $\sqrt{\epsilon}\,\eta_k$, with $\eta_k\sim\cN(0,I)$, injects randomness into the dynamics, thus promoting exploration of the state space, preventing the chain locking on the local maxima.
+\end{solution}
+
+
+\begin{exercise}[Failure of score on manifolds]
+Assume the data distribution is supported on a lower-dimensional manifold in $\R^D$.  
+Explain why $p(\x)$ may not admit a density with respect to the Lebesgue measure, and why the score function becomes ill-defined.
+\end{exercise}
+
+\begin{solution}[Failure of score on manifolds]
+If the data distribution is supported on a lower-dimensional manifold embedded in $\R^D$, then all its probability mass is concentrated on a set of Lebesgue measure zero in the ambient space. Therefore, the distribution is not absolutely continuous with respect to the Lebesgue measure, and so it does not admit a density $p(\x)$ on $\R^D$.
+
+Since the score function is defined by
+\[
+s(\x)=\nabla_\x \log p(\x),
+\]
+it requires the existence of a differentiable density in the ambient space. When $p(\x)$ does not exist as a Lebesgue density, the expression $\log p(\x)$ is not well defined, and hence neither is its gradient. Therefore, the score function becomes ill-defined.
+\end{solution}
+
+
+
+\begin{exercise}[Score matching objective]
+Starting from
+\[
+\cL_{\text{SM}}(\theta) = \frac{1}{2}\mathbb{E}_{p_{\text{data}}(\x)}\|s_\theta(\x) - \nabla_\x \log p_{\text{data}}(\x)\|^2,
+\]
+derive the equivalent expression
+\[
+\mathbb{E}_{p_{\text{data}}(\x)}\left[\tr(\nabla_\x s_\theta(\x)) + \frac{1}{2}\|s_\theta(\x)\|^2\right] + \text{constant}.
+\]
+\end{exercise}
+
+\begin{solution}[Score matching objective]
+Expanding the square gives
+\begin{align*}
+\cL_{\text{SM}}(\theta)
+&=
+\frac12 \int p_{\text{data}}(\x)
+\left(
+\|s_\theta(\x)\|^2
+-2 s_\theta(\x)^\top \nabla_\x \log p_{\text{data}}(\x)
++\|\nabla_\x \log p_{\text{data}}(\x)\|^2
+\right)\d\x \\
+&=
+\frac12 \int p_{\text{data}}(\x)\|s_\theta(\x)\|^2\,\d\x
+-\int s_\theta(\x)^\top \nabla_\x p_{\text{data}}(\x)\,\d\x
++\text{constant},
+\end{align*}
+since
+\[
+p_{\text{data}}(\x)\nabla_\x \log p_{\text{data}}(\x)=\nabla_\x p_{\text{data}}(\x),
+\]
+and the last term does not depend on $\theta$.
+
+Now write
+\[
+-\int s_\theta(\x)^\top \nabla_\x p_{\text{data}}(\x)\,\d\x
+=
+-\sum_{j=1}^D \int s_{\theta,j}(\x)\,\partial_{x_j}p_{\text{data}}(\x)\,\d\x.
+\]
+For each component, and assuming suitable decay at infinity, integration by parts gives
+\[
+-\int s_{\theta,j}(\x)\,\partial_{x_j}p_{\text{data}}(\x)\,\d\x
+=
+\int p_{\text{data}}(\x)\,\partial_{x_j}s_{\theta,j}(\x)\,\d\x.
+\]
+Summing over $j$ yields
+\[
+-\int s_\theta(\x)^\top \nabla_\x p_{\text{data}}(\x)\,\d\x
+=
+\int p_{\text{data}}(\x)\,\tr(\nabla_\x s_\theta(\x))\,\d\x.
+\]
+
+Therefore,
+\[
+\cL_{\text{SM}}(\theta)
+=
+\mathbb{E}_{p_{\text{data}}(\x)}
+\left[
+\tr(\nabla_\x s_\theta(\x))+\frac12\|s_\theta(\x)\|^2
+\right]
++\text{constant}.
+\]
+\end{solution}
+
+
+
+\begin{exercise}[Denoising score matching]
+Let $q_\sigma(\tilde{\x}\mid\x)=\cN(\tilde{\x};\x,\sigma^2 I)$.  
+Compute $\nabla_{\tilde{\x}}\log q_\sigma(\tilde{\x}\mid\x)$ and show that the DSM objective corresponds to a regression target $-(\tilde{\x}-\x)/\sigma^2$.
+\end{exercise}
+
+\begin{solution}[Denoising score matching]
+Since
+\[
+q_\sigma(\tilde{\x}\mid\x)
+=
+\frac{1}{(2\pi\sigma^2)^{D/2}}
+\exp\left(
+-\frac{1}{2\sigma^2}\|\tilde{\x}-\x\|_2^2
+\right),
+\]
+the score is given by 
+\[
+\nabla_{\tilde{\x}}\log q_\sigma(\tilde{\x}\mid\x)
+=
+-\frac{1}{\sigma^2}(\tilde{\x}-\x).
+\]
+
+Therefore, the denoising score matching objective
+\[
+\cL_{\mathrm{DSM}}(\theta)
+=
+\frac12
+\mathbb{E}_{p_{\mathrm{data}}(\x)\,q_\sigma(\tilde{\x}\mid\x)}
+\left\|
+s_\theta(\tilde{\x})
+-
+\nabla_{\tilde{\x}}\log q_\sigma(\tilde{\x}\mid\x)
+\right\|_2^2
+\]
+becomes
+\[
+\cL_{\mathrm{DSM}}(\theta)
+=
+\frac12
+\mathbb{E}_{p_{\mathrm{data}}(\x)\,q_\sigma(\tilde{\x}\mid\x)}
+\left\|
+s_\theta(\tilde{\x})
++
+\frac{\tilde{\x}-\x}{\sigma^2}
+\right\|_2^2.
+\]
+This means that training $s_\theta$ is equivalent to solving a regression problem with the target
+\(
+-(\tilde{\x}-\x)/\sigma^2.
+\)
+\end{solution}
+
+
+\begin{exercise}[Noise-conditional score network]
+Let $\{\sigma_i\}_{i=1}^L$ be a collection of noise levels, and for each $\sigma_i$ define the denoising score matching loss
+\[
+l(\theta;\sigma_i)
+=
+\frac12
+\mathbb{E}_{\x\sim p_{\mathrm{data}}(\x),\,\tilde{\x}\sim \cN(\x,\sigma_i^2 I)}
+\left\|
+s_\theta(\tilde{\x},\sigma_i)+\frac{\tilde{\x}-\x}{\sigma_i^2}
+\right\|^2.
+\]
+The full training objective of the noise-conditional score network is
+\[
+\cL_{\mathrm{NCSN}}(\theta)
+=
+\frac1L\sum_{i=1}^L \lambda(\sigma_i)\,l(\theta;\sigma_i).
+\]
+Explain why choosing $\lambda(\sigma_i)=\sigma_i^2$ helps balance the contributions of different noise levels in the objective. Then, describe how one generates training pairs $(\tilde{\x},\sigma_i)$ in practice, without an explicit construction of $L$ separate noisy datasets.
+\end{exercise}
+
+\begin{solution}[Noise-conditional score network]
+Recall from the previous exercise that, for a fixed noise level $\sigma_i$, the target in the loss is
+\(
+-(\tilde{\x}-\x)/\sigma_i^2.
+\)
+Since $\tilde{\x}=\x+\sigma_i \z$ with $\z\sim\cN(0,I)$, we have
+\(
+\tilde{\x}-\x=\sigma_i \z,
+\)
+and therefore the target becomes
+\[
+-\frac{\tilde{\x}-\x}{\sigma_i^2}=-\frac{\z}{\sigma_i}.
+\]
+Hence, its magnitude scales like $1/\sigma_i$, so the squared norm in the loss scales like $1/\sigma_i^2$. This means that, without weighting, the losses corresponding to small noise levels would tend to dominate the objective. Therefore, choosing
+\[
+\lambda(\sigma_i)=\sigma_i^2
+\]
+compensates for this different magnitudes, levelling the contributions from different noise levels.
+
+In practice, one does not construct $L$ separate noisy datasets. Instead, during each training iteration, one first samples a clean datapoint
+\(
+\x\sim p_{\mathrm{data}}(\x), 
+\)
+and then (uniformly) samples a noise level $\sigma_i$ from the collection $\{\sigma_i\}_{i=1}^L$, to finally generate a noisy sample as
+\[
+\tilde{\x}=\x+\sigma_i \z,
+\qquad
+\z\sim\cN(0,I).
+\]
+The pair $(\tilde{\x},\sigma_i)$ is then used in the loss above. Using minibatches, we obtain a Monte Carlo approximation of the objective, without the need to store noisy copies of the dataset for every noise level.
+\end{solution}
+
+\begin{exercise}[Forward diffusion process]
+Consider
+\[
+q(\x_t \mid \x_{t-1}) = \cN(\x_t;\sqrt{1-\beta_t}\x_{t-1},\beta_t I).
+\]
+Show that
+\[
+q(\x_t\mid\x_0)=\cN(\x_t;\sqrt{\bar\alpha_t}\x_0,(1-\bar\alpha_t)I),
+\]
+and derive $\bar\alpha_t=\prod_{s=1}^t(1-\beta_s)$.
+\end{exercise}
+
+\begin{solution}[Forward diffusion process]
+Denoting $\alpha_t=1-\beta_t$, the forward transition can be expressed as 
+\[
+\x_t=\sqrt{\alpha_t}\x_{t-1}+\sqrt{1-\alpha_t}\,\epsilon_t,
+\qquad \epsilon_t\sim\cN(0,I).
+\]
+Iterating this recursion gives
+\[
+\x_t
+=
+\sqrt{\alpha_t\alpha_{t-1}\cdots \alpha_1}\,\x_0
++
+\text{Gaussian noise}.
+\]
+Hence, defining
+\[
+\bar\alpha_t=\prod_{s=1}^t \alpha_s=\prod_{s=1}^t(1-\beta_s),
+\]
+the mean of $\x_t\mid \x_0$ is
+\[
+\mathbb{E}[\x_t\mid \x_0]=\sqrt{\bar\alpha_t}\,\x_0.
+\]
+
+Since each step adds independent Gaussian noise, $\x_t\mid \x_0$ is Gaussian. Therefore, applying the covariance operator to the forward transition equation gives a recursion for covariance of $\x_t\mid \x_0$, denoted $\Sigma_t$, as
+\[
+\Sigma_t=\alpha_t \Sigma_{t-1}+(1-\alpha_t)I,
+\qquad \Sigma_0=0,
+\]
+whose solution is
+\[
+\Sigma_t=(1-\bar\alpha_t)I.
+\]
+This gives the required result
+\[
+q(\x_t\mid\x_0)=\cN(\x_t;\sqrt{\bar\alpha_t}\x_0,(1-\bar\alpha_t)I).
+\]
+
+\end{solution}
+
+\begin{exercise}[Noise prediction parametrisation]
+In DDPM, the reverse process is parametrised as
+\[
+p_\theta(\x_{t-1}\mid \x_t)=\cN(\x_{t-1};\mu_\theta(\x_t,t),\sigma_t^2 I).
+\]
+Let $\epsilon_\theta(\x_t,t)$ be a neural network estimating the noise in $\x_t$, and consider
+\[
+\mu_\theta(\x_t,t) = \frac{1}{\sqrt{\alpha_t}}\left(\x_t - \frac{\beta_t}{\sqrt{1-\bar\alpha_t}}\epsilon_\theta(\x_t,t)\right).
+\]
+Show that, under the matching loss
+\[
+\|\tilde\mu_t(\x_t,\x_0)-\mu_\theta(\x_t,t)\|^2,
+\]
+the choice of  $\mu_\theta$ above leads to a loss of the form
+\[
+\|\epsilon - \epsilon_\theta(\x_t,t)\|^2.
+\]
+\end{exercise}
+
+\begin{solution}[Noise prediction parametrisation]
+Recall that
+\[
+\x_t=\sqrt{\bar\alpha_t}\x_0+\sqrt{1-\bar\alpha_t}\,\epsilon,
+\qquad \epsilon\sim\cN(0,I),
+\]
+and that the true posterior mean of $q(\x_{t-1}\mid \x_t,\x_0)$ can be written as
+\[
+\tilde\mu_t(\x_t,\x_0)
+=
+\frac{1}{\sqrt{\alpha_t}}
+\left(
+\x_t-\frac{\beta_t}{\sqrt{1-\bar\alpha_t}}\epsilon
+\right).
+\]
+Using the given parametrisation, we obtain
+\[
+\|\tilde\mu_t(\x_t,\x_0)-\mu_\theta(\x_t,t)\|^2
+=
+\frac{\beta_t^2}{\alpha_t(1-\bar\alpha_t)}
+\|\epsilon-\epsilon_\theta(\x_t,t)\|^2.
+\]
+Thus, up to a known scalar weight depending only on $t$, the loss is of the form
+\[
+\|\epsilon-\epsilon_\theta(\x_t,t)\|^2.
+\]
+\end{solution}
+
+
