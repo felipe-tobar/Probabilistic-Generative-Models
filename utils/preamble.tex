@@ -187,6 +187,21 @@
     fontcolor=red!80!black,
 }
 
+\mdfdefinestyle{RelatedReferences}{%
+    skipabove=\topskip,
+    skipbelow=\topskip,
+    topline=false,
+    roundcorner=10pt,
+    frametitlefont={\color{blue!70!black}\normalfont\bfseries},
+    frametitlerule=true,
+    frametitlebackgroundcolor=blue!8,
+    backgroundcolor=blue!8,
+    linecolor=blue!8,
+    fontcolor=blue!80!black,
+}
+
+
+
 \mdfdefinestyle{WarningFrame}{%
     skipabove=\topskip,
     skipbelow=\topskip,
@@ -205,6 +220,12 @@
 \newcommand{\missing}[1]{%
   \begin{mdframed}[style=TodoFrame,nobreak=true,align=center,userdefinedwidth=0.75\textwidth]
     \textbf{To do:} #1
+  \end{mdframed}
+}
+
+\newcommand{\relatedrefs}[1]{%
+  \begin{mdframed}[style=RelatedReferences,nobreak=true,align=center,userdefinedwidth=0.9\textwidth]
+    \textbf{Related references:} #1
   \end{mdframed}
 }
 

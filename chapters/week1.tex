@@ -4,9 +4,9 @@
 
 \section{Introduction}
 
-A Probabilistic generative model (PGM), or simply, a GM, is a methodology for generating data. In general, the PGM is constructed and adjusted using observations with the aim to synthesise samples with the same statistical properties of the available observations. The \emph{probabilistic} nature of the PGMs studied in this course follows from the fact that the available data will be considered to be realisations of an underlying random variable (RV), e.g., $X$. 
+A Probabilistic generative model (PGM), or simply, a GM, is a methodology for generating data. In general, the PGM is constructed and adjusted using observations with the aim to synthesise samples with the same statistical properties of the available observations. The \emph{probabilistic} nature of the PGMs studied in these lecture notes follows from the fact that the available data will be considered to be realisations of an underlying random variable (RV), e.g., $X$. 
 
-In this sense, the probability distribution of $X$, denoted $P_X(x)$, as well as its probability density function (pdf) $p_X(x)$ will be central to the study of PGMs. In particular, targeting the pdf is one way of constructing PGMs, in which case the whole PGM paradigm becomes equivalent to the classical statistical modelling approach. However, as we will see in the course, enforcing the sought-after PGM to have an explicit parametric pdf can be rather restrictive. 
+In this sense, the probability distribution of $X$, denoted $P_X(x)$, as well as its probability density function (pdf) $p_X(x)$ will be central to the study of PGMs. In particular, targeting the pdf is one way of constructing PGMs, in which case the PGM paradigm resembles the classical statistical modelling approach. However, as we will see in the course, enforcing the sought-after PGM to have an explicit parametric pdf can be rather restrictive. 
 
 Throughout the course, we will consider a probability space $(\Omega, \cF, \P)$, with 3 RVs given by the following measurable maps: 
 \[
@@ -17,21 +17,21 @@ X:\Omega \to \cX & Y:\Omega \to \cY & Z:\Omega \to \cZ \\
 \]
 
 \begin{remark}
-Not all three RVs will be present in all our settings. For instance, in classification there is no justification for the latent variable $Z$ (in general), while in clustering, there is no need for $X$. However, we build the general setup here for formality. 
+Not all three RVs will be present in all settings considered. For instance, in classification there is no justification for the latent variable $Z$ (in general), while in clustering, there is no need for the input $X$. However, we build the general setup here for formality an completeness. 
 \end{remark}
 
 We equip $\cX,\cY,\cZ$ with their Borel $\sigma$-algebras $\cB(\cX),\cB(\cY),\cB(\cZ)$, and consider the product measurable space
 \[
 (\cX\times\cY\times\cZ,\; \cB(\cX)\otimes\cB(\cY)\otimes\cB(\cZ)).
 \]
-Then the joint random variable $(X,Y,Z):\Omega\to \cX\times\cY\times\cZ$ is measurable with respect to $\cF$ and the above product $\sigma$-algebra. 
+Then, the joint random variable $(X,Y,Z):\Omega\to \cX\times\cY\times\cZ$ is measurable with respect to $\cF$ and the above product $\sigma$-algebra. 
 
-Furthermore, we will assume that the law of $(X,Y,Z)$ is absolutely continuous with respect to the product base measure on $\cX\times\cY\times\cZ$ (e.g.\ Lebesgue measure when $\cX,\cY,\cZ\subseteq\R^d$), and hence admits a joint density $p(x,y,z)$. That is, for all $A\in\cB(\cX),B\in\cB(\cY),C\in\cB(\cZ)$,
+Furthermore, we will assume that the law of $(X,Y,Z)$ is absolutely continuous with respect to the product base measure on $\cX\times\cY\times\cZ$ (e.g., the Lebesgue measure when $\cX,\cY,\cZ\subseteq\R^d$), and hence admits a joint density $p(x,y,z)$. That is, for all $A\in\cB(\cX),B\in\cB(\cY),C\in\cB(\cZ)$,
 \begin{equation}
 	\Prob{X\in A,Y\in B, Z\in C} = \int_{A \times B\times C} p(x,y,z)\dx\dy\dz.
 \end{equation}
 
-We will also assume that all relevant marginals and conditionals admit densities (with respect to the corresponding base measures), e.g.\ $p(x,y)$, $p(y|x)$, $p(z|x,y)$, etc.
+We will also assume that all relevant marginals and conditionals admit densities (with respect to the corresponding base measures), e.g., $p(x,y)$, $p(y|x)$, $p(z|x,y)$, etc.
 
 
 \section{Discriminative versus generative}
@@ -39,22 +39,22 @@ We will also assume that all relevant marginals and conditionals admit densities
 The generative approach aims to characterise the complete generative distribution $p(x,y,z)$, whereas, in some application-specific cases, only the discriminative model, e.g., $p(y|x)$, is needed. Let us examine the following example. 
 
 \begin{example}[Generative and discriminative views of binary classification]
-	Consider the binary classification problem, where, given an observation $X=x$, one needs to estimate its label $Y$. A discriminative model would directly parametrise $\P(Y|X=x)$. Since this is a binary classification case, without loss of generality, we can assume $Y\in\{0,1\}$, and model $\P(Y=1|X=x)$, since $\P(Y=0|X=x) = 1 - \P(Y=1|X=x)$.  A model for this probability only needs to map $x\in\R^d \to \P(Y=1|X=x)\in[0,1]$. For instance, a reasonable candidate for this is
+	Consider the binary classification problem, where, given an observation $X=x$, one needs to estimate its label $Y$. A discriminative model would directly parametrise $\P(Y|X=x)$. Since this is a binary classification case, without loss of generality, we can assume $Y\in\{0,1\}$, and simply model $\P(Y=1|X=x)$, since $\P(Y=0|X=x) = 1 - \P(Y=1|X=x)$.  A model for this probability only needs to map $x\in\R^d \mapsto \P(Y=1|X=x)\in[0,1]$. For instance, a reasonable candidate for this is
 	\begin{equation}
-		\P(Y=1|X=x) = \frac{1}{1+e^{-\theta^\top x}}
+		\P(Y=1|X=x) = \frac{1}{1+e^{-\theta^\top x}},
 	\end{equation}
-	which is known as the logistic regression. 
+	which corresponds to the logistic regression model.
 
-	Conversely, in a generative approach, we aim to model the joint probability $p(Y=y, X=x)$. Modelling this distribution is not easy, however, observe that we can factorise it as 
+	Conversely, in a generative approach, we aim to model the joint probability $p(Y=y, X=x)$. Modelling this distribution might be challenging in some cases, however, observe that we can factorise it as 
 	\begin{equation}
 		p(Y=y, X=x) = p(X=x|Y=y)p(Y=y),
 	\end{equation}
 	which yields a pair of much more intuitive distributions to model: 
 	\begin{itemize}
 		\item the class probability $p(Y=y) = (\pi,1-\pi), \pi\in[0,1]$, and 
-		\item the class-conditional probability $p(X=x|Y=y)$, given by a two distributions over $\cX$, denoted $f_{\theta_0}$ and $f_{\theta_1}$.
+		\item the class-conditional probability $p(X=x|Y=y)$, given by a two distributions over $\cX$, denoted $f_{\theta_0}$ and $f_{\theta_1}$, for $y=0$ and $y=1$ respectively.
 	\end{itemize}
-	Therefore, the classifier is 
+	Therefore, using Bayes theorem, the classifier can be written as 
 	\begin{align}
 		p(Y=1 | X=x) 	&= \frac{p(X=x|Y=1)p(Y=1)}{p(X=x)}\nonumber \\
 						&= \frac{1}{1 + e^{-\log\left(\frac{\pi}{1-\pi}\frac{f_{\theta_1}(x)}{f_{\theta_0}(x)}\right)}}.\label{eq:generative_binary_classification}
@@ -62,12 +62,12 @@ The generative approach aims to characterise the complete generative distributio
 \end{example}
 
 \begin{exercise}
-Evaluate eq.~\eqref{eq:generative_binary_classification} for $f_{\theta_0} = \cN(\mu_0,\Sigma_0)$ and $f_{\theta_1} = \cN(\mu_1,\Sigma_1)$. What happens when $\Sigma_0=\Sigma_1$?
+Evaluate eq.~\eqref{eq:generative_binary_classification} for $f_{\theta_0} = \cN(\mu_0,\Sigma_0)$ and $f_{\theta_1} = \cN(\mu_1,\Sigma_1)$. Does the resulting classifier take a known form? What happens when $\Sigma_0=\Sigma_1$?
 \end{exercise}
 
 \section{The pushforward measure}
 
-Despite the abundant collection of well-studied statistical models, in some scenarios we can construct a more ad hoc model by applying an appropriate transformation. 
+Despite the abundant collection of well-studied statistical models, in some scenarios we can construct a more ad hoc model by applying an expressive transformation to a RV given by a simpler, or more elementary, model. 
 
 \begin{definition}
 	Consider a RV $X\in\cX$ with measure $P_X$, and a nonlinear map $T: \cX \to \cX$. The measure of the transformed RV $T(X)$ is known as the \emph{push forward measure} of $P_X$ through $T$, and it is denoted by $T_\#P_X$
@@ -128,8 +128,9 @@ For an illustration of this case and other related examples, see Fig.~\ref{fig:c
 
 \end{example}
 
-In general, for arbitrary source distributions and maps it is difficult to compute the target density in closed form, at least in the continuous case. For the specific case of differentiable and invertible maps $T$, the following theorem given a recipe to compute $p_{T(X)}$  
+In general, for arbitrary source distributions and maps it is difficult to compute the target density in closed form, at least in the continuous case. For a differentiable and invertible map $T$, the following theorem gives a recipe to compute $p_{T(X)}$  
 \begin{theorem}[Change of variable]
+	\label{thm:CoV}
 	Consider two RVs $X,Y\in\R^d$, such that $Y=T(X)$, where $T:\R^d\to\R^d$ is a $C^1$ diffeomorphism. If $X$ and $Y$ have densities $p_X$ and $p_Y$ respectively, then
 	\begin{equation}
 		p_Y(y) = p_X(T^{-1}(y))\left|\det \nabla_y T^{-1}(y)\right|, 
@@ -142,14 +143,14 @@ In general, for arbitrary source distributions and maps it is difficult to compu
 	\begin{equation}
 	(T_\#P_X)(A) \;=\; P_X(T^{-1}(A)), \qquad \forall A\in\mathcal B(\mathcal X).
 	\end{equation}
-	Though in general the pdf of $T$ will not be available in closed form.
+	Though in general the pdf of $T$ will not be available in closed form when the conditions of Thm.~\ref{thm:CoV} are not met.
 \end{remark}
 
 \section{Likelihood-based training}
 
-Maximum likelihood (ML) is going to be the canonical methodology for training our PGMs, and, as we will see next, it will recover other forms of training criteria in particular cases. 
+Maximum likelihood (ML) will be the canonical methodology for training PGMs across these notes, and, as we will see next, it will recover other forms of training criteria in particular cases. 
 
-Consider a PGM for the RV $Y$, with density $p_\theta(y)$, where $\theta\in\Theta$ denotes the model parameter. Also, consider the realisations of $Y$ given by $y_1,y_2,\ldots, y_N$. 
+Let us consider a PGM for the RV $Y$, with density $p_\theta(y)$, where $\theta\in\Theta$ denotes the model parameter. Also, consider a set of realisations of $Y$ given by $y_1,y_2,\ldots, y_N$. 
 
 \begin{definition}[Likelihood function]
 	The likelihood of the parameter $\theta$ is the function $L:\Theta\to\R_+$ given by the probability density function of $Y$ evaluated on the observations. That is, 
@@ -181,9 +182,9 @@ Consider a PGM for the RV $Y$, with density $p_\theta(y)$, where $\theta\in\Thet
 \begin{example}[Gaussian linear regression]
 	Let us consider the PGM given by 
 	\begin{equation}
-		Y|x \sim \cN(ax, \sigma^2), a,x\in\R, \sigma^2\in\R_+.
+		Y(x) \sim \cN(ax, \sigma^2), a,x\in\R, \sigma^2\in\R_+.
 	\end{equation}
-	This is equivalent to $Y=ax + \epsilon, \epsilon\sim\cN(0,\sigma^2)$. The parameters in this setting are  $\theta = (a,\sigma^2)$. Now consider the observations $\{(x_n,y_n)\}_{n=1}^N$. 
+	This is equivalent to $Y(x)=ax + \epsilon, \epsilon\sim\cN(0,\sigma^2)$. The parameters in this setting are  $\theta = (a,\sigma^2)$. Now consider the observations $\{(x_n,y_n)\}_{n=1}^N$. 
 
 	Since $p(y_n|x_n) = \frac{1}{\sqrt{2\pi\sigma^2}}\exp\left(\frac{-1}{2\sigma^2}(y_n-ax_n)^2\right)$, we can write the log-likelihood as 
 	\begin{equation}
@@ -201,7 +202,7 @@ Consider a PGM for the RV $Y$, with density $p_\theta(y)$, where $\theta\in\Thet
 	\begin{equation}
 		p_\theta(y=1|x) = \sigma(s(x)),
 	\end{equation}
-	where $\sigma(s(x)) = \frac{1}{1+e^{-s(x)}}$, and $s:\R^d\to \R$ is a feature extractor (e.g., $s(x) = a^\top x + b$). Assuming that the observations are i.i.d., we have
+	where $\sigma(s(x)) = \frac{1}{1+e^{-s(x)}}$ is referred to as the logistic function, and $s:\R^d\to \R$ is a feature extractor, for instance, $s(x) = a^\top x + b$. Assuming that the observations are i.i.d., we have
 	\begin{equation}
 		L(\theta) = \prod_{n=1}^N p(y_n|x_n) = \prod_{n=1}^N \sigma(s(x_n))^{y_n} (1-\sigma(s(x_n)))^{1-y_n}, 
 	\end{equation}
@@ -209,19 +210,19 @@ Consider a PGM for the RV $Y$, with density $p_\theta(y)$, where $\theta\in\Thet
 	\begin{equation}
 		l(\theta) = \sum_{n=1}^N y_n \log \sigma(s(x_n)) + (1-y_n)\log (1-\sigma(s(x_n))). 
 	\end{equation}
-	Does this expression seem familiar? If not, we will find out soon what this is.
+	Does this expression seem familiar? If not, we will soon find out what this is.
 \end{example}
 
 \begin{example}[Clustering]
-Consider a set of observations $\{x_n\}_{n=1}^N\in\R^d$ and implement a clustering algorithm. We will assume that there are $K\in\N$ clusters, each specified by a density $p_k, k=1,\ldots, K$; this means that the probability of the RV $X$ coming from the $k$-th cluster is $\P(X\in C_k) = \pi_k$, where $\forall k, 0\leq \pi_k \leq 1$ and $\sum_{k=1}^K \pi_k = 1$. 
+Consider a set of observations $\{x_n\}_{n=1}^N\in\R^d$ and implement a clustering algorithm. We will assume that there are $K\in\N$ clusters, each specified by a density $p_k, k=1,\ldots, K$, and that the probability of the RV $X$ taking values in the $k$-th cluster is $\P(X\in C_k) = \pi_k$, where $\forall k, 0\leq \pi_k \leq 1$ and $\sum_{k=1}^K \pi_k = 1$. 
 
 This is a mixture model, with density $p(x)=\sum_{k=1}^K \pi_k p_k(x)$, and parameters given by the cluster probabilities $\pi_k$ and the parameters of the densities $p_k = p_{\theta_k}$. The log-likelihood is 
 \begin{equation}
-	l(\theta) = \sum_{n=1}^N \log \sum_{k=1}^K \pi_k p_k(x_n) \label{eq:clustering_likelihood}
+	l(\theta) = \sum_{n=1}^N \log \sum_{k=1}^K \pi_k p_k(x_n). \label{eq:clustering_likelihood}
 \end{equation}
-Note that there are two issues associated to optimising eq.~\eqref{eq:clustering_likelihood}. 
+Note that, if training this model is achieved by to optimising eq.~\eqref{eq:clustering_likelihood}, two issues arise:  
 \begin{itemize}
-	\item We do not recover the cluster assignments.
+	\item Learning the model parameters do not allow for recovering the cluster assignments, i.e., we do not know to which cluster each observation corresponds.
 	\item The problem is ill-posed. E.g., if $p_k=\cN(\mu_k,\Sigma_k)$, which is the usual choice, we can set $\mu_k=x_n, \Sigma_k=0$ which gives $l=\infty$.
 \end{itemize}	
 
@@ -233,6 +234,7 @@ where $p(Z_{nk} = 1) = \pi_k$, and more generally $p(z_{nk}) = \prod_{k=1}^{K} \
 
 The model for the observed and latent variable can be expressed as $p(x,z) = p(x\mid z)p(z)$. Since the conditional densities $p(x_n|z_{nk}) = \prod_{k=1}^K (p_k(x_n))^{z_{nk}}$, we can express the \textbf{complete-data likelihood} by
 \begin{align}
+	\label{eq:ch1_clustering_completeloglike}
 	l_c(\theta) 
 	&= \log \prod_{n=1}^N\prod_{k=1}^K (\pi_kp_k(x_n))^{z_{nk}} \nonumber \\
 	& = \sum_{n=1}^N\sum_{k=1}^K z_{nk} (\log  \pi_k + \log  p_k(x_n)).
@@ -241,17 +243,19 @@ Good and bad news: this objective is now theoretically feasible to optimise but 
 
 A workaround to this is to replace the cluster assignments $z_{nk}$, by their conditional expectations $\gamma_{nk} = \E{z_{nk}|x_{n}, \theta}$. That is, 
 \begin{align}
+	\label{eq:ch1_clustering_responsabilities}
 	\gamma_{nk}
 	&= 1*\P(z_{nk} = 1 |x_n, \theta) + 0*\P(z_{nk} = 0 |x_n, \theta)\nonumber \\ 
 	&= \frac{\pi_k p_k(x_n \mid \theta)}{\sum_{j=1}^{K}\pi_j p_j(x_n \mid \theta)}.
 \end{align}
-Then, we can perform an iterative procedure by: i) optimising $l_c(\theta)$ using $\gamma_{nk}$ above, and ii) computing $\gamma_{nk}$ using $\theta^\star=\argmax \mathbb{E}_{z\mid x,\theta} [l_c(\theta)]$. 
+Then, we can consider an initial value for the parameter $\theta=\theta_0$, and then perform an iterative procedure given by first computing $\gamma_{nk}$ using from eq.~\eqref{eq:ch1_clustering_responsabilities}, and then optimising $l_c(\theta)$  replacing $z_{nk}$ by $\gamma_{nk}$  in eq.~\eqref{eq:ch1_clustering_completeloglike}.
+
 
 Lastly, even though this latent-variable formulation does not solve the ill-posedness problem of the likelihood, it provides a more controlled optimisation strategy that can be monitored (and regularised) to avoid degenerate optima in practice. 
 \end{example}
 
 
-The maximum likelihood estimator (MLE) satisfies several important theoretical properties:
+We conclude this section by revisitng key theoretical properties of the maximum likelihood estimator (MLE).
 
 \begin{itemize}
     \item \textbf{Consistency:} Under the assumption that the statistical model is \emph{identifiable}—i.e., different parameter values correspond to different probability distributions—the MLE converges to the true parameter as the number of observations grows. Intuitively, maximising the likelihood asymptotically minimises the Kullback--Leibler divergence between the true distribution and the distribution induced by a candidate parameter.
@@ -270,8 +274,13 @@ The maximum likelihood estimator (MLE) satisfies several important theoretical p
 In practice, these properties justify the widespread use of the MLE: it not only converges to the true parameter under mild assumptions, but also allows for straightforward reparametrisations and provides an estimator with minimal asymptotic variance.
 
 \section{A brief intro to information theory}
-\textbf{NB:} This section is based on Chapter 6 of \cite{murphy2022pml_intro}
+\label{sec:ch1_intro_to_InfTh}
 
+\relatedrefs{%
+See \cite[Ch.~6]{murphy2022pml_intro}, and also
+\cite[Ch.~2]{mackay2003information}, \cite{cover2006elements},
+and \cite{polyanskiy2024information}.
+}
 
 \paragraph{Motivation.} Let us consider a discrete RV $X\in \{1,2,\ldots, K\}$ with pmf $p_X$.  Observe that $-\log p_X(x)$ represents a measure of \emph{information} gained from obtaining the value $a$ as a sample of $X$. Now consider a communication channel $A \to B$, where $A$ is transmitting samples of $X$ to $B$. When $B$ received the samples, its \emph{average information} can be expressed as 
 \begin{equation}

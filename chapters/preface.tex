@@ -3,10 +3,16 @@
 
 
 \section*{Preface}
-This notes are under development for 2026.
+Automating tasks that require reasoning from evidence has been a longstanding desire of humanity. Modern Artificial Intelligence (AI) systems achieve this at different levels of maturity, from climate modelling and autonomous vehicles, to recommendation systems and synthetic video generation. Though the route to building AI systems is not unique, machine learning (ML) has become the de facto path to AI due to its applicability to a wide variety of settings, computational tractability, and an active community working towards establishing its theoretical guarantees. Since ML seeks to infer the information required to navigate an unknown world from limited interactions, learning is fundamentally an inverse problem. Moreover, since observations are necessarily incomplete and our description of the world will  almost invariably be imperfect, uncertainty is intrinsic to the learning problem. This makes the adoption of a probabilistic perspective natural. 
+
+In this setting, it is also worth reflecting on what it is that we should learn from experience. If the task is known in advance, we can simply learn what is needed to solve it. However, when learning is to occur before defining the task, we ought to learn a representation of experience  that can support multiple tasks. Intuitively, if we set ourselves to learn as much as possible about the  data-generating mechanism, so that the learnt representation can be used towards a range of tasks in such domain, then it is only logical to aim to learn the data-generating mechanism itself. 
+
+This book is about probabilistic generative models (PGMs), that is, mathematical methods for sampling from a probability distribution specified only through observations from it. In addition to the intellectual appeal of generative modelling in machine learning, the practical reasons motivating the study of PGMs cannot be overstated. Once trained, PGMs equip us with a principled methodology for gaining insight into the data-generating process, by inspecting learnt parameters and representations. Critically, by adopting a Bayesian approach, the otherwise unconditional generative ability of these models can be conditioned on observations to address tasks such as statistical inference and forecasting, thus tackling discriminative tasks in a probabilistic manner. 
+
+Organised around nine interconnected chapters, the book navigates from classical to modern results in probabilistic machine learning, offering graduate students a companion as they explore this exciting field. The presentation assumes an undergraduate-level background in probability, statistics, optimisation, and machine learning. The first four chapters of the book establish the context for generative modelling and revisit tools transversal to the design, interpretation and inference of different PGMs. These include notions of information theory, approximate Bayesian inference, optimal transport, and computational heuristics. The remaining chapters focus on concrete PGMs, including Gaussian processes, deep latent variable models, sequence models, and state-of-the-art flow- and diffusion-based models. Throughout the book, theoretical and computational examples alongside solved exercises illustrate the content, with Python code available in the book's repository for reproducibility and independent study. 
 
 
-\vspace{3em}
+\vspace{1em}
 \noindent Felipe Tobar, \\
 London, \\
-January 2026. 
+September 2026. 
